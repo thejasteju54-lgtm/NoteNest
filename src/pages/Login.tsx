@@ -1,24 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import { BookOpen, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
+import { validateStudentEmail } from '@/utils/authValidation';
+import {
+  BookOpen,
+  Lock,
+  Mail,
+  ArrowRight,
+  AlertCircle,
+  ShieldCheck,
+  RefreshCw,
+  CheckCircle2,
+} from 'lucide-react';
 
 interface LoginProps {
   onNavigateToSignup: () => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
-  const { signIn } = useAuth();
+  const { signIn, resendConfirmationEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isUnconfirmed, setIsUnconfirmed] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendMessage, setResendMessage] = useState('');
+
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      setError('Please enter both your email and password.');
+    setIsUnconfirmed(false);
+    setResendMessage('');
+
+    const emailCheck = validateStudentEmail(email);
+    if (!emailCheck.isValid) {
+      setError(emailCheck.error || 'Please enter a valid student email.');
+      return;
+    }
+
+    if (!password) {
+      setError('Please enter your password.');
       return;
     }
 
@@ -27,9 +56,24 @@ export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
     try {
       await signIn(email, password);
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in. Please check your credentials.');
+      const msg = err.message || 'Failed to sign in. Please check your credentials.';
+      setError(msg);
+      if (msg.toLowerCase().includes('not been confirmed') || msg.toLowerCase().includes('email not confirmed')) {
+        setIsUnconfirmed(true);
+      }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResendLink = async () => {
+    if (resendCooldown > 0 || !email) return;
+    try {
+      await resendConfirmationEmail(email);
+      setResendMessage('Verification email resent! Please check your inbox and spam folder.');
+      setResendCooldown(60);
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend verification email.');
     }
   };
 
@@ -44,7 +88,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
           Sign in to NoteNest
         </h1>
         <p className="mt-1 text-xs text-slate-500 font-medium">
-          Your notes. Organized.
+          Access your private academic notes and study nest.
         </p>
       </div>
 
@@ -55,7 +99,31 @@ export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
             {error && (
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-rose-700 text-xs animate-in fade-in">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{error}</span>
+                <div className="space-y-1">
+                  <span>{error}</span>
+                  {isUnconfirmed && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={handleResendLink}
+                        disabled={resendCooldown > 0}
+                        className="font-bold underline hover:text-rose-900 transition-colors flex items-center gap-1 mt-1"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        {resendCooldown > 0
+                          ? `Resend in ${resendCooldown}s`
+                          : 'Resend Verification Link'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {resendMessage && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-emerald-800 text-xs animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{resendMessage}</span>
               </div>
             )}
 
@@ -102,16 +170,17 @@ export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
                 onClick={onNavigateToSignup}
                 className="font-semibold text-accent-sage hover:text-accent-sage-hover hover:underline transition-colors"
               >
-                Create your student account
+                Create a verified student account
               </button>
             </p>
           </div>
         </div>
 
         {/* Minimal Footer */}
-        <p className="text-center text-[11px] text-slate-400 mt-6">
-          Private, secure academic note organization with Supabase.
-        </p>
+        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 mt-6">
+          <ShieldCheck className="w-3.5 h-3.5 text-accent-sage" />
+          <span>Protected by Supabase Row-Level Security & Auth</span>
+        </div>
       </div>
     </div>
   );

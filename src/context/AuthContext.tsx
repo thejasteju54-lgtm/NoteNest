@@ -11,6 +11,7 @@ export interface AuthContextValue {
   signUp: (email: string, password: string, name: string) => Promise<{ emailConfirmationRequired: boolean }>;
   signIn: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<void>;
   login: (email: string, password: string) => Promise<User>;
   register: (name: string, email: string, password?: string) => Promise<{ emailConfirmationRequired: boolean }>;
   logout: () => Promise<void>;
@@ -70,6 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { emailConfirmationRequired: result.emailConfirmationRequired };
   };
 
+  const resendConfirmationEmail = async (email: string) => {
+    await authService.resendConfirmationEmail(email);
+  };
+
   const signOut = async () => {
     await authService.logout();
     setUser(null);
@@ -91,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         signIn,
         signOut,
+        resendConfirmationEmail,
         login,
         register,
         logout,

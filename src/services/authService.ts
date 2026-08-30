@@ -2,6 +2,7 @@ import { User, IAuthProvider } from '@/types/auth';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { getInitials } from '@/config/demoAccounts';
+import { validateStudentEmail, validateStrongPassword } from '@/utils/authValidation';
 
 export class ProductionSupabaseAuthService implements IAuthProvider {
   isConfigured(): boolean {
@@ -64,8 +65,13 @@ export class ProductionSupabaseAuthService implements IAuthProvider {
       throw new Error('Supabase is not configured. Check your environment variables.');
     }
 
-    if (!email.trim() || !password) {
-      throw new Error('Please provide both email and password.');
+    const emailCheck = validateStudentEmail(email);
+    if (!emailCheck.isValid) {
+      throw new Error(emailCheck.error);
+    }
+
+    if (!password) {
+      throw new Error('Please enter your password.');
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -76,10 +82,10 @@ export class ProductionSupabaseAuthService implements IAuthProvider {
     if (error || !data.user) {
       const msg = error?.message?.toLowerCase() || '';
       if (msg.includes('invalid login credentials')) {
-        throw new Error('Invalid email or password. Please check your credentials.');
+        throw new Error('Invalid email or password. Please verify your credentials.');
       }
       if (msg.includes('email not confirmed')) {
-        throw new Error('Your email address has not been confirmed yet. Please check your inbox.');
+        throw new Error('Your email address has not been confirmed yet. Please check your inbox for the verification link.');
       }
       throw new Error(error?.message || 'Login failed. Please try again.');
     }
@@ -110,21 +116,27 @@ export class ProductionSupabaseAuthService implements IAuthProvider {
     }
 
     const trimmedName = name.trim();
-    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedName || trimmedName.length < 2) {
+      throw new Error('Please enter your full student name (at least 2 characters).');
+    }
 
-    if (!trimmedName) {
-      throw new Error('Please enter your full name.');
+    // 1. Strict Email & Disposable Domain Validation
+    const emailCheck = validateStudentEmail(email);
+    if (!emailCheck.isValid) {
+      throw new Error(emailCheck.error);
     }
-    if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      throw new Error('Please enter a valid student email address.');
+
+    // 2. Strict Strong Password Validation
+    const passwordCheck = validateStrongPassword(password || '');
+    if (!passwordCheck.isValid) {
+      throw new Error(passwordCheck.error);
     }
-    if (!password || password.length < 6) {
-      throw new Error('Password must be at least 6 characters long.');
-    }
+
+    const trimmedEmail = email.trim().toLowerCase();
 
     const { data, error } = await supabase.auth.signUp({
       email: trimmedEmail,
-      password,
+      password: password!,
       options: {
         data: {
           display_name: trimmedName,
@@ -138,17 +150,17 @@ export class ProductionSupabaseAuthService implements IAuthProvider {
         throw new Error('An account with this email already exists. Please sign in instead.');
       }
       if (msg.includes('rate limit') || msg.includes('rate_limit')) {
-        throw new Error('Supabase email verification rate limit reached. Please disable "Confirm email" in Supabase Auth settings or try signing in.');
+        throw new Error('Email verification rate limit reached. Please wait a few minutes before requesting another email.');
       }
       throw new Error(error.message || 'Registration failed.');
     }
 
     const supaUser = data.user;
     const session = data.session;
-    const emailConfirmationRequired = !session;
+    const emailConfirmationRequired = !session || !supaUser?.email_confirmed_at;
 
     let user: User | null = null;
-    if (supaUser) {
+    if (supaUser && session) {
       user = {
         id: supaUser.id,
         name: trimmedName,
@@ -160,6 +172,29 @@ export class ProductionSupabaseAuthService implements IAuthProvider {
     }
 
     return { user, session, emailConfirmationRequired };
+  }
+
+  async resendConfirmationEmail(email: string): Promise<void> {
+    if (!supabase) {
+      throw new Error('Supabase is not configured.');
+    }
+
+    const emailCheck = validateStudentEmail(email);
+    if (!emailCheck.isValid) {
+      throw new Error(emailCheck.error);
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim().toLowerCase(),
+    });
+
+    if (error) {
+      if (error.message.toLowerCase().includes('rate limit')) {
+        throw new Error('Please wait 60 seconds before requesting another verification email.');
+      }
+      throw new Error(error.message || 'Failed to resend confirmation email.');
+    }
   }
 
   async logout(): Promise<void> {
