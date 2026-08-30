@@ -36,8 +36,9 @@ export const NoteRenameModal: React.FC<NoteRenameModalProps> = ({ note, isOpen, 
     try {
       await renameNote(note.id, trimmed);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to rename note.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to rename note.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -92,7 +92,7 @@ export class SupabaseSubjectRepository implements ISubjectRepository {
       throw new Error('Supabase is not configured.');
     }
 
-    const payload: Record<string, any> = {};
+    const payload: Record<string, unknown> = {};
     if (updates.name !== undefined) payload.name = updates.name;
     if (updates.colorId !== undefined) payload.color = updates.colorId;
     if (updates.description !== undefined) payload.description = updates.description;

@@ -55,8 +55,8 @@ export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
     setError('');
     try {
       await signIn(email, password);
-    } catch (err: any) {
-      const msg = err.message || 'Failed to sign in. Please check your credentials.';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.';
       setError(msg);
       if (msg.toLowerCase().includes('not been confirmed') || msg.toLowerCase().includes('email not confirmed')) {
         setIsUnconfirmed(true);
@@ -72,8 +72,9 @@ export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
       await resendConfirmationEmail(email);
       setResendMessage('Verification email resent! Please check your inbox and spam folder.');
       setResendCooldown(60);
-    } catch (err: any) {
-      setError(err.message || 'Failed to resend verification email.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to resend verification email.';
+      setError(message);
     }
   };
 

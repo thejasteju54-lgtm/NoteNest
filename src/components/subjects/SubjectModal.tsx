@@ -48,8 +48,9 @@ export const SubjectModal: React.FC = () => {
         await createSubject(trimmed, selectedColorId, description);
       }
       closeSubjectModal();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save subject.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to save subject.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -185,8 +185,9 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       success('Subject created', `"${created.name}" is ready for notes.`);
       await refreshData();
       return created;
-    } catch (err: any) {
-      showError('Could not create subject', err.message || 'Unknown error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showError('Could not create subject', message);
       throw err;
     }
   };
@@ -198,8 +199,9 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       success('Subject updated', `Updated to "${updated.name}".`);
       await refreshData();
       return updated;
-    } catch (err: any) {
-      showError('Could not update subject', err.message || 'Unknown error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showError('Could not update subject', message);
       throw err;
     }
   };
@@ -216,8 +218,9 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         navigateTo({ type: 'dashboard' });
       }
       await refreshData();
-    } catch (err: any) {
-      showError('Could not delete subject', err.message || 'Unknown error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showError('Could not delete subject', message);
       throw err;
     }
   };
@@ -229,8 +232,9 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       success('Note uploaded', `"${note.title}" saved successfully.`);
       await refreshData();
       return note;
-    } catch (err: any) {
-      showError('Upload failed', err.message || 'We could not upload your note. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'We could not upload your note. Please try again.';
+      showError('Upload failed', message);
       throw err;
     }
   };
@@ -242,8 +246,9 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       success('Note renamed', `Updated title to "${updated.title}".`);
       await refreshData();
       return updated;
-    } catch (err: any) {
-      showError('Could not rename note', err.message || 'Unknown error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showError('Could not rename note', message);
       throw err;
     }
   };
@@ -254,8 +259,9 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await noteService.deleteNote(user.id, id);
       success('Note deleted', 'The PDF note was removed.');
       await refreshData();
-    } catch (err: any) {
-      showError('Could not delete note', err.message || 'Unknown error');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showError('Could not delete note', message);
       throw err;
     }
   };
@@ -264,8 +270,9 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!user) throw new Error('Not authenticated');
     try {
       await noteService.downloadNote(user.id, id);
-    } catch (err: any) {
-      showError('Download failed', err.message || 'Could not download note file.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not download note file.';
+      showError('Download failed', message);
     }
   };
 

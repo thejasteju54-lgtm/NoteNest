@@ -79,8 +79,9 @@ export const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
         setConfirmationSent(true);
         setResendCooldown(60);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to create account.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create account.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -94,8 +95,9 @@ export const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
       setResendStatus('sent');
       setResendCooldown(60);
       setTimeout(() => setResendStatus('idle'), 4000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to resend confirmation email.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to resend confirmation email.';
+      setError(message);
       setResendStatus('error');
     }
   };

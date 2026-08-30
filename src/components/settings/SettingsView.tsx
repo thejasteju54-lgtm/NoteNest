@@ -40,8 +40,9 @@ export const SettingsView: React.FC = () => {
     try {
       await backupService.exportBackup(user.id, user.name, user.email);
       success('Backup exported', 'Your NoteNest backup JSON archive has been downloaded.');
-    } catch (err: any) {
-      showError('Export failed', err.message || 'Could not export backup.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not export backup.';
+      showError('Export failed', message);
     } finally {
       setIsExporting(false);
     }
@@ -59,8 +60,9 @@ export const SettingsView: React.FC = () => {
         `Successfully restored ${result.subjectsCount} subjects and ${result.notesCount} notes.`
       );
       await refreshData();
-    } catch (err: any) {
-      showError('Import failed', err.message || 'Failed to parse and restore backup archive.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to parse and restore backup archive.';
+      showError('Import failed', message);
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

@@ -30,7 +30,7 @@ export class FileValidationService {
     }
 
     // 3. MIME type check (allow empty mime if OS doesn't report it, but if reported must be application/pdf)
-    if (file.type && !APP_CONFIG.ALLOWED_MIME_TYPES.includes(file.type as any)) {
+    if (file.type && !(APP_CONFIG.ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) {
       return {
         isValid: false,
         error: `Invalid MIME type (${file.type}). Expected application/pdf.`,

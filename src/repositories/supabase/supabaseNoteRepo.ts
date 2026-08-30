@@ -125,7 +125,7 @@ export class SupabaseNoteRepository implements INoteRepository {
       throw new Error('Supabase is not configured.');
     }
 
-    const payload: Record<string, any> = {};
+    const payload: Record<string, unknown> = {};
     if (updates.title !== undefined) payload.title = updates.title;
     if (updates.subjectId !== undefined) payload.subject_id = updates.subjectId;
 

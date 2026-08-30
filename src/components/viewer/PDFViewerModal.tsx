@@ -56,9 +56,10 @@ export const PDFViewerModal: React.FC = () => {
           setBlobUrl(url);
           setIsLoading(false);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMounted) {
-          setError(err.message || 'Failed to load PDF document.');
+          const message = err instanceof Error ? err.message : 'Failed to load PDF document.';
+          setError(message);
           setIsLoading(false);
         }
       }

@@ -94,8 +94,9 @@ export const UploadModal: React.FC = () => {
       setTimeout(() => {
         closeUploadModal();
       }, 350);
-    } catch (err: any) {
-      setValidationError(err.message || 'Upload failed. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      setValidationError(message);
       setIsUploading(false);
       setUploadProgress(0);
     }
