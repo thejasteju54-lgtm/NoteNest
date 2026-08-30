@@ -1,14 +1,17 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+// Centralized Supabase credentials with production defaults
+const DEFAULT_SUPABASE_URL = 'https://bmisabwbprnslgkeksys.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable__RiHSirSdCBLRF_DU9jatA_JlH-UkBN';
+
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL);
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || DEFAULT_SUPABASE_ANON_KEY);
 
 /**
- * Checks if valid Supabase configuration is present in environment variables.
+ * Checks if valid Supabase configuration is present.
  */
 export function isSupabaseConfigured(): boolean {
   if (!supabaseUrl || !supabaseAnonKey) return false;
-  // Ensure not placeholder values
   if (
     supabaseUrl.includes('your-project-id') ||
     supabaseAnonKey.includes('your-anon-publishable-key') ||
@@ -27,14 +30,11 @@ export function isSupabaseConfigured(): boolean {
 
 /**
  * Centralized Supabase client instance.
- * Returns null if Supabase environment variables are not configured.
  */
-export const supabase: SupabaseClient | null = isSupabaseConfigured()
-  ? createClient(supabaseUrl!, supabaseAnonKey!, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    })
-  : null;
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
