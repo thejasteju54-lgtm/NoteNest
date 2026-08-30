@@ -137,6 +137,9 @@ export class ProductionSupabaseAuthService implements IAuthProvider {
       if (msg.includes('already registered') || msg.includes('user already exists')) {
         throw new Error('An account with this email already exists. Please sign in instead.');
       }
+      if (msg.includes('rate limit') || msg.includes('rate_limit')) {
+        throw new Error('Supabase email verification rate limit reached. Please disable "Confirm email" in Supabase Auth settings or try signing in.');
+      }
       throw new Error(error.message || 'Registration failed.');
     }
 
