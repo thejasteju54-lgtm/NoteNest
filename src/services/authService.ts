@@ -117,7 +117,7 @@ export class ProductionSupabaseAuthService implements IAuthProvider {
 
     const trimmedName = name.trim();
     if (!trimmedName || trimmedName.length < 2) {
-      throw new Error('Please enter your full student name (at least 2 characters).');
+      throw new Error('Please enter your full name (at least 2 characters).');
     }
 
     // 1. Strict Email & Disposable Domain Validation

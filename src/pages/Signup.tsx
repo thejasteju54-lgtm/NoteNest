@@ -187,9 +187,9 @@ export const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
               />
 
               <Input
-                label="Student or Personal Email"
+                label="Email"
                 type="email"
-                placeholder="maya.chen@university.edu"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 leftIcon={<Mail className="w-4 h-4 text-slate-400" />}

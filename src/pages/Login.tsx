@@ -42,7 +42,7 @@ export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
 
     const emailCheck = validateStudentEmail(email);
     if (!emailCheck.isValid) {
-      setError(emailCheck.error || 'Please enter a valid student email.');
+      setError(emailCheck.error || 'Please enter a valid email address.');
       return;
     }
 
@@ -128,9 +128,9 @@ export const Login: React.FC<LoginProps> = ({ onNavigateToSignup }) => {
             )}
 
             <Input
-              label="Student Email"
+              label="Email"
               type="email"
-              placeholder="student@university.edu"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
