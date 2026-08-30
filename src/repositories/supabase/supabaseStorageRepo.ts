@@ -1,19 +1,20 @@
 import { supabase } from '@/lib/supabase';
 
-const BUCKET_NAME = 'notes';
+const BUCKET_NAME = 'notenest-files';
 
 export class SupabaseFileStorageRepository {
   /**
-   * Uploads a PDF blob to the user-scoped storage path: {userId}/{subjectId}/{fileName}.pdf
+   * Uploads a PDF blob to the user-scoped storage path:
+   * {user_id}/{subject_id}/{timestamp}-{unique_uuid}.pdf
    */
-  async uploadFile(userId: string, subjectId: string, fileName: string, fileBlob: Blob): Promise<string> {
+  async uploadFile(userId: string, subjectId: string, fileBlob: Blob): Promise<string> {
     if (!supabase) {
       throw new Error('Supabase is not configured.');
     }
 
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
     const timestamp = Date.now();
-    const storagePath = `${userId}/${subjectId}/${timestamp}_${sanitizedFileName}`;
+    const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11);
+    const storagePath = `${userId}/${subjectId}/${timestamp}-${uniqueId}.pdf`;
 
     const { error } = await supabase.storage
       .from(BUCKET_NAME)
@@ -30,7 +31,7 @@ export class SupabaseFileStorageRepository {
   }
 
   /**
-   * Downloads the file blob from storage.
+   * Downloads the file blob from storage using authenticated session.
    */
   async downloadFile(storagePath: string): Promise<Blob | null> {
     if (!supabase) return null;
@@ -48,7 +49,7 @@ export class SupabaseFileStorageRepository {
   }
 
   /**
-   * Generates a secure, temporary signed URL for viewing/downloading the PDF (valid for 1 hour).
+   * Generates a secure, temporary signed URL for viewing the PDF (default 1 hour expiry).
    */
   async getSignedUrl(storagePath: string, expiresInSeconds = 3600): Promise<string | null> {
     if (!supabase) return null;

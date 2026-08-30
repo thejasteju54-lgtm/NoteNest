@@ -6,7 +6,6 @@ import { useAuth } from './AuthContext';
 import { subjectService } from '@/services/subjectService';
 import { noteService } from '@/services/noteService';
 import { searchService } from '@/services/searchService';
-import { seedDataService } from '@/services/seedDataService';
 import { useToast } from './ToastContext';
 
 interface NoteNestContextValue {
@@ -82,8 +81,6 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     try {
       setIsLoading(true);
-      // Seed starter academic notes if first visit
-      await seedDataService.seedDemoUserData(user.id);
 
       const [loadedSubjects, loadedRecent] = await Promise.all([
         subjectService.getSubjectsWithStats(user.id),

@@ -1,105 +1,99 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User, DemoAccount } from '@/types/auth';
+import { User } from '@/types/auth';
 import { authService } from '@/services/authService';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { Session } from '@supabase/supabase-js';
 
-interface AuthContextValue {
+export interface AuthContextValue {
   user: User | null;
+  session: Session | null;
+  loading: boolean;
   isLoading: boolean;
-  isSupabase: boolean;
-  demoAccounts: readonly DemoAccount[];
-  login: (email: string, password?: string) => Promise<User>;
-  register: (name: string, email: string, password?: string) => Promise<User>;
+  signUp: (email: string, password: string, name: string) => Promise<{ emailConfirmationRequired: boolean }>;
+  signIn: (email: string, password: string) => Promise<User>;
+  signOut: () => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  register: (name: string, email: string, password?: string) => Promise<{ emailConfirmationRequired: boolean }>;
   logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
-  switchDemoAccount: (accountId: string) => Promise<User>;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const isSupabase = isSupabaseConfigured();
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const loadCurrentUser = useCallback(async () => {
+  const initializeSession = useCallback(async () => {
     try {
-      setIsLoading(true);
-      const active = await authService.getCurrentUser();
-      setUser(active);
+      setLoading(true);
+      const [activeSession, activeUser] = await Promise.all([
+        authService.getCurrentSession(),
+        authService.getCurrentUser(),
+      ]);
+      setSession(activeSession);
+      setUser(activeUser);
     } catch (err) {
-      console.error('Failed to load current user:', err);
+      console.error('Session initialization error:', err);
+      setUser(null);
+      setSession(null);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadCurrentUser();
+    initializeSession();
 
-    // Subscribe to real-time auth changes if provider supports it
-    if (authService.onAuthStateChange) {
-      const unsubscribe = authService.onAuthStateChange((updatedUser) => {
-        setUser(updatedUser);
-      });
-      return () => unsubscribe();
-    }
-  }, [loadCurrentUser]);
+    const unsubscribe = authService.onAuthStateChange((updatedUser, updatedSession) => {
+      setUser(updatedUser);
+      setSession(updatedSession);
+      setLoading(false);
+    });
 
-  const login = async (email: string, password?: string) => {
+    return () => unsubscribe();
+  }, [initializeSession]);
+
+  const signIn = async (email: string, password: string) => {
     const loggedIn = await authService.login(email, password);
+    const activeSession = await authService.getCurrentSession();
     setUser(loggedIn);
+    setSession(activeSession);
     return loggedIn;
   };
 
-  const register = async (name: string, email: string, password?: string) => {
-    const created = await authService.register(name, email, password);
-    setUser(created);
-    return created;
+  const signUp = async (email: string, password: string, name: string) => {
+    const result = await authService.register(name, email, password);
+    if (result.user && result.session) {
+      setUser(result.user);
+      setSession(result.session);
+    }
+    return { emailConfirmationRequired: result.emailConfirmationRequired };
   };
 
-  const logout = async () => {
+  const signOut = async () => {
     await authService.logout();
     setUser(null);
+    setSession(null);
   };
 
-  const resetPassword = async (email: string) => {
-    if (authService.resetPassword) {
-      await authService.resetPassword(email);
-    }
-  };
-
-  const loginWithGoogle = async () => {
-    if (authService.loginWithGoogle) {
-      await authService.loginWithGoogle();
-    }
-  };
-
-  const switchDemoAccount = async (accountId: string) => {
-    setIsLoading(true);
-    try {
-      const switched = await authService.switchDemoAccount(accountId);
-      setUser(switched);
-      return switched;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const login = (email: string, password: string) => signIn(email, password);
+  const register = (name: string, email: string, password?: string) =>
+    signUp(email, password || '', name);
+  const logout = () => signOut();
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isLoading,
-        isSupabase,
-        demoAccounts: authService.listDemoAccounts(),
+        session,
+        loading,
+        isLoading: loading,
+        signUp,
+        signIn,
+        signOut,
         login,
         register,
         logout,
-        resetPassword,
-        loginWithGoogle,
-        switchDemoAccount,
       }}
     >
       {children}

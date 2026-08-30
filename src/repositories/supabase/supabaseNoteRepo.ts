@@ -9,23 +9,27 @@ interface SupabaseNoteRow {
   subject_id: string;
   title: string;
   file_name: string;
-  file_path: string;
+  storage_path: string;
   file_size: number;
-  file_type: string;
+  mime_type?: string;
+  file_type?: string;
   created_at: string;
   updated_at: string;
 }
 
 function mapRowToNote(row: SupabaseNoteRow): Note {
+  const path = row.storage_path;
+  const mime = row.mime_type || row.file_type || 'application/pdf';
   return {
     id: row.id,
     userId: row.user_id,
     subjectId: row.subject_id,
-    title: row.title,
+    title: row.title || row.file_name,
     fileName: row.file_name,
-    filePath: row.file_path,
+    filePath: path,
+    storagePath: path,
     fileSize: Number(row.file_size),
-    fileType: row.file_type || 'application/pdf',
+    fileType: mime,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -81,11 +85,10 @@ export class SupabaseNoteRepository implements INoteRepository {
       throw new Error('Supabase is not configured.');
     }
 
-    // 1. Upload PDF Blob to Cloud Storage
+    // 1. Upload PDF Blob to Cloud Storage with collision-resistant path
     const storagePath = await supabaseStorageRepo.uploadFile(
       noteData.userId,
       noteData.subjectId,
-      noteData.fileName,
       fileBlob
     );
 
@@ -97,9 +100,9 @@ export class SupabaseNoteRepository implements INoteRepository {
         subject_id: noteData.subjectId,
         title: noteData.title,
         file_name: noteData.fileName,
-        file_path: storagePath,
+        storage_path: storagePath,
         file_size: noteData.fileSize,
-        file_type: noteData.fileType || 'application/pdf',
+        mime_type: noteData.fileType || 'application/pdf',
       })
       .select()
       .single();
@@ -159,8 +162,9 @@ export class SupabaseNoteRepository implements INoteRepository {
     }
 
     // Delete storage file if path exists
-    if (existing.filePath) {
-      await supabaseStorageRepo.deleteFile(existing.filePath);
+    const path = existing.storagePath || existing.filePath;
+    if (path) {
+      await supabaseStorageRepo.deleteFile(path);
     }
 
     return true;
@@ -190,9 +194,10 @@ export class SupabaseNoteRepository implements INoteRepository {
 
   async getFileBlob(id: string, userId: string): Promise<Blob | null> {
     const note = await this.getById(id, userId);
-    if (!note || !note.filePath) return null;
+    const path = note?.storagePath || note?.filePath;
+    if (!path) return null;
 
-    return supabaseStorageRepo.downloadFile(note.filePath);
+    return supabaseStorageRepo.downloadFile(path);
   }
 
   async countBySubject(subjectId: string, userId: string): Promise<number> {

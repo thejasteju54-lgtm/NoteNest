@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://bmisabwbprnslgkeksys.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable__RiHSirSdCBLRF_DU9jatA_JlH-UkBN';
+const BUCKET_NAME = 'notenest-files';
 
 describe('Live Supabase Backend & RLS Security Verification', () => {
   let supaAnon: SupabaseClient;
@@ -12,7 +13,6 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
   });
 
   it('1. Live Database Connectivity & Table Check', async () => {
-    // Check if tables exist and are accessible with anon/auth
     const { data: profiles, error: profErr } = await supaAnon.from('profiles').select('count').limit(1);
     console.log('Profiles table check:', { profiles, profErr });
 
@@ -34,52 +34,57 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
 
   it('3. Multi-User Live Authentication and RLS Cross-Access Isolation Test', async () => {
     const timestamp = Date.now();
-    const userAEmail = `notenest_test_a_${timestamp}@testmail.com`;
-    const userBEmail = `notenest_test_b_${timestamp}@testmail.com`;
-    const testPassword = `TestPass123!_${timestamp}`;
+    const userAEmail = `notenest_user_a_${timestamp}@notenest.dev`;
+    const userBEmail = `notenest_user_b_${timestamp}@notenest.dev`;
+    const testPassword = `SecurePass123!_${timestamp}`;
 
     console.log('Registering User A:', userAEmail);
     const { data: authA, error: authAErr } = await supaAnon.auth.signUp({
       email: userAEmail,
       password: testPassword,
-      options: { data: { display_name: 'Test Student Alpha' } },
+      options: { data: { display_name: 'Student Alpha' } },
     });
 
     if (authAErr || !authA.user) {
-      console.log('User A SignUp result:', { authAErr, user: authA?.user?.id });
+      console.log('User A SignUp status:', { authAErr, user: authA?.user?.id });
       return;
     }
 
     const clientA = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: false },
     });
-    await clientA.auth.setSession({
-      access_token: authA.session?.access_token || '',
-      refresh_token: authA.session?.refresh_token || '',
-    });
+    if (authA.session) {
+      await clientA.auth.setSession({
+        access_token: authA.session.access_token,
+        refresh_token: authA.session.refresh_token,
+      });
+    }
 
     console.log('Registering User B:', userBEmail);
     const { data: authB, error: authBErr } = await supaAnon.auth.signUp({
       email: userBEmail,
       password: testPassword,
-      options: { data: { display_name: 'Test Student Beta' } },
+      options: { data: { display_name: 'Student Beta' } },
     });
 
     if (authBErr || !authB.user) {
-      console.log('User B SignUp result:', { authBErr, user: authB?.user?.id });
+      console.log('User B SignUp status:', { authBErr, user: authB?.user?.id });
       return;
     }
 
     const clientB = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: false },
     });
-    await clientB.auth.setSession({
-      access_token: authB.session?.access_token || '',
-      refresh_token: authB.session?.refresh_token || '',
-    });
+    if (authB.session) {
+      await clientB.auth.setSession({
+        access_token: authB.session.access_token,
+        refresh_token: authB.session.refresh_token,
+      });
+    }
 
     const userAId = authA.user.id;
     const userBId = authB.user.id;
+    expect(userAId).toBeTruthy();
     expect(userBId).toBeTruthy();
 
     // --- TEST A: User A Creates Subject ---
@@ -104,9 +109,9 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
           subject_id: subjA.id,
           title: `Calculus Live ${timestamp}`,
           file_name: 'calculus.pdf',
-          file_path: `${userAId}/${subjA.id}/calculus.pdf`,
+          storage_path: `${userAId}/${subjA.id}/${timestamp}-doc.pdf`,
           file_size: 1024,
-          file_type: 'application/pdf',
+          mime_type: 'application/pdf',
         })
         .select()
         .single();
@@ -123,16 +128,12 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
       expect(userBReadSubjA?.length || 0).toBe(0);
 
       // --- TEST D: User B Attempts to UPDATE User A's Subject ---
-      const { data: userBUpdateSubjA, error: userBUpdateErr } = await clientB
+      const { data: userBUpdateSubjA } = await clientB
         .from('subjects')
         .update({ name: 'Hacked Subject' })
         .eq('id', subjA.id)
         .select();
 
-      console.log('RLS Check - User B updating User A subject (Expect 0 rows updated):', {
-        userBUpdateSubjA,
-        userBUpdateErr,
-      });
       expect(userBUpdateSubjA?.length || 0).toBe(0);
 
       // --- TEST E: User B Attempts to DELETE User A's Subject ---
@@ -142,7 +143,6 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
         .eq('id', subjA.id)
         .select();
 
-      console.log('RLS Check - User B deleting User A subject (Expect 0 rows deleted):', userBDeleteSubjA);
       expect(userBDeleteSubjA?.length || 0).toBe(0);
 
       // --- TEST F: User B Attempts to SELECT User A's Note ---
@@ -152,7 +152,6 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
           .select('*')
           .eq('id', noteA.id);
 
-        console.log('RLS Check - User B reading User A note (Expect empty array):', userBReadNoteA);
         expect(userBReadNoteA?.length || 0).toBe(0);
 
         // --- TEST G: User B Attempts to UPDATE User A's Note ---
@@ -162,7 +161,6 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
           .eq('id', noteA.id)
           .select();
 
-        console.log('RLS Check - User B updating User A note (Expect 0 rows updated):', userBUpdateNoteA);
         expect(userBUpdateNoteA?.length || 0).toBe(0);
 
         // --- TEST H: User B Attempts to DELETE User A's Note ---
@@ -172,7 +170,6 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
           .eq('id', noteA.id)
           .select();
 
-        console.log('RLS Check - User B deleting User A note (Expect 0 rows deleted):', userBDeleteNoteA);
         expect(userBDeleteNoteA?.length || 0).toBe(0);
       }
 
@@ -181,17 +178,17 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
       const testBlob = new Blob([pdfBytes], { type: 'application/pdf' });
 
       // User A uploads to User A folder
-      const storagePathA = `${userAId}/${subjA.id}/test_doc.pdf`;
+      const storagePathA = `${userAId}/${subjA.id}/${timestamp}-doc.pdf`;
       const { data: uploadA, error: uploadAErr } = await clientA.storage
-        .from('notes')
+        .from(BUCKET_NAME)
         .upload(storagePathA, testBlob, { contentType: 'application/pdf', upsert: true });
 
       console.log('User A Storage Upload result:', { uploadA, uploadAErr });
 
       // User B attempts to upload into User A folder (Must fail with RLS error)
-      const unauthorizedUploadPath = `${userAId}/${subjA.id}/malicious.pdf`;
+      const unauthorizedUploadPath = `${userAId}/${subjA.id}/${timestamp}-malicious.pdf`;
       const { data: hackUpload, error: hackUploadErr } = await clientB.storage
-        .from('notes')
+        .from(BUCKET_NAME)
         .upload(unauthorizedUploadPath, testBlob, { contentType: 'application/pdf' });
 
       console.log('RLS Check - User B uploading to User A folder (Expect error):', { hackUpload, hackUploadErr });
@@ -199,7 +196,7 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
 
       // User B attempts to download User A's PDF (Must fail or return null)
       const { data: downloadB, error: downloadBErr } = await clientB.storage
-        .from('notes')
+        .from(BUCKET_NAME)
         .download(storagePathA);
 
       console.log('RLS Check - User B downloading User A PDF (Expect error/null):', { downloadB, downloadBErr });

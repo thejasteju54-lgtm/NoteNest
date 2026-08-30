@@ -1,104 +1,205 @@
-import { User, DemoAccount, IAuthProvider } from '@/types/auth';
-import { repositories } from '@/repositories';
-import { isSupabaseConfigured } from '@/lib/supabase';
-import { DEMO_ACCOUNTS, getInitials } from '@/config/demoAccounts';
-import { SupabaseAuthService } from './supabaseAuthService';
+import { User, IAuthProvider } from '@/types/auth';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { Session } from '@supabase/supabase-js';
+import { getInitials } from '@/config/demoAccounts';
 
-export class LocalDemoAuthService implements IAuthProvider {
+export class ProductionSupabaseAuthService implements IAuthProvider {
   isConfigured(): boolean {
-    return false; // Local demo mode
+    return isSupabaseConfigured();
+  }
+
+  async getCurrentSession(): Promise<Session | null> {
+    if (!supabase) return null;
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) return null;
+      return session;
+    } catch {
+      return null;
+    }
   }
 
   async getCurrentUser(): Promise<User | null> {
-    const user = await repositories.authRepo.getCurrentUser();
-    if (user) return user;
+    if (!supabase) return null;
 
-    // Default to first demo account if no user is active yet
-    const defaultDemo = DEMO_ACCOUNTS[0];
-    const initialUser: User = {
-      id: defaultDemo.id,
-      name: defaultDemo.name,
-      email: defaultDemo.email,
-      avatarInitials: getInitials(defaultDemo.name),
-      avatarColor: defaultDemo.avatarColor,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const {
+        data: { user: supaUser },
+        error,
+      } = await supabase.auth.getUser();
 
-    await repositories.authRepo.saveCurrentUser(initialUser);
-    await repositories.authRepo.saveUser(initialUser);
-    return initialUser;
-  }
+      if (error || !supaUser) {
+        return null;
+      }
 
-  async login(email: string, name?: string): Promise<User> {
-    const trimmedEmail = email.trim().toLowerCase();
-    const allUsers = await repositories.authRepo.listUsers();
-    let existing = allUsers.find((u) => u.email.toLowerCase() === trimmedEmail);
+      // Fetch user profile from profiles table if exists
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name, created_at')
+        .eq('id', supaUser.id)
+        .maybeSingle();
 
-    if (!existing) {
-      const displayName = name?.trim() || trimmedEmail.split('@')[0];
-      existing = {
-        id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      const displayName =
+        profile?.display_name ||
+        supaUser.user_metadata?.display_name ||
+        supaUser.email?.split('@')[0] ||
+        'Student';
+
+      return {
+        id: supaUser.id,
         name: displayName,
-        email: trimmedEmail,
+        email: supaUser.email || '',
         avatarInitials: getInitials(displayName),
         avatarColor: 'sage',
-        createdAt: new Date().toISOString(),
+        createdAt: profile?.created_at || supaUser.created_at || new Date().toISOString(),
       };
-      await repositories.authRepo.saveUser(existing);
+    } catch (err) {
+      console.error('Failed to get current user from Supabase:', err);
+      return null;
     }
-
-    await repositories.authRepo.saveCurrentUser(existing);
-    return existing;
   }
 
-  async register(name: string, email: string): Promise<User> {
-    const trimmedEmail = email.trim().toLowerCase();
-    const displayName = name.trim();
+  async login(email: string, password?: string): Promise<User> {
+    if (!supabase) {
+      throw new Error('Supabase is not configured. Check your environment variables.');
+    }
 
-    const newUser: User = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    if (!email.trim() || !password) {
+      throw new Error('Please provide both email and password.');
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    if (error || !data.user) {
+      const msg = error?.message?.toLowerCase() || '';
+      if (msg.includes('invalid login credentials')) {
+        throw new Error('Invalid email or password. Please check your credentials.');
+      }
+      if (msg.includes('email not confirmed')) {
+        throw new Error('Your email address has not been confirmed yet. Please check your inbox.');
+      }
+      throw new Error(error?.message || 'Login failed. Please try again.');
+    }
+
+    const supaUser = data.user;
+    const displayName =
+      supaUser.user_metadata?.display_name ||
+      supaUser.email?.split('@')[0] ||
+      'Student';
+
+    return {
+      id: supaUser.id,
       name: displayName,
-      email: trimmedEmail,
+      email: supaUser.email || '',
       avatarInitials: getInitials(displayName),
-      avatarColor: 'blue',
-      createdAt: new Date().toISOString(),
+      avatarColor: 'sage',
+      createdAt: supaUser.created_at,
     };
+  }
 
-    await repositories.authRepo.saveUser(newUser);
-    await repositories.authRepo.saveCurrentUser(newUser);
-    return newUser;
+  async register(
+    name: string,
+    email: string,
+    password?: string
+  ): Promise<{ user: User | null; session: Session | null; emailConfirmationRequired: boolean }> {
+    if (!supabase) {
+      throw new Error('Supabase is not configured. Check your environment variables.');
+    }
+
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedName) {
+      throw new Error('Please enter your full name.');
+    }
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      throw new Error('Please enter a valid student email address.');
+    }
+    if (!password || password.length < 6) {
+      throw new Error('Password must be at least 6 characters long.');
+    }
+
+    const { data, error } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: {
+        data: {
+          display_name: trimmedName,
+        },
+      },
+    });
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('already registered') || msg.includes('user already exists')) {
+        throw new Error('An account with this email already exists. Please sign in instead.');
+      }
+      throw new Error(error.message || 'Registration failed.');
+    }
+
+    const supaUser = data.user;
+    const session = data.session;
+    const emailConfirmationRequired = !session;
+
+    let user: User | null = null;
+    if (supaUser) {
+      user = {
+        id: supaUser.id,
+        name: trimmedName,
+        email: trimmedEmail,
+        avatarInitials: getInitials(trimmedName),
+        avatarColor: 'sage',
+        createdAt: supaUser.created_at,
+      };
+    }
+
+    return { user, session, emailConfirmationRequired };
   }
 
   async logout(): Promise<void> {
-    await repositories.authRepo.saveCurrentUser(null);
-  }
-
-  listDemoAccounts(): readonly DemoAccount[] {
-    return DEMO_ACCOUNTS;
-  }
-
-  async switchDemoAccount(accountId: string): Promise<User> {
-    const demo = DEMO_ACCOUNTS.find((d) => d.id === accountId);
-    if (!demo) {
-      throw new Error(`Demo account not found: ${accountId}`);
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Supabase sign out error:', error);
     }
+  }
 
-    const user: User = {
-      id: demo.id,
-      name: demo.name,
-      email: demo.email,
-      avatarInitials: getInitials(demo.name),
-      avatarColor: demo.avatarColor,
-      createdAt: new Date().toISOString(),
+  onAuthStateChange(callback: (user: User | null, session: Session | null) => void): () => void {
+    if (!supabase) return () => {};
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        callback(null, null);
+        return;
+      }
+
+      const supaUser = session.user;
+      const displayName =
+        supaUser.user_metadata?.display_name ||
+        supaUser.email?.split('@')[0] ||
+        'Student';
+
+      const appUser: User = {
+        id: supaUser.id,
+        name: displayName,
+        email: supaUser.email || '',
+        avatarInitials: getInitials(displayName),
+        avatarColor: 'sage',
+        createdAt: supaUser.created_at,
+      };
+
+      callback(appUser, session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
     };
-
-    await repositories.authRepo.saveUser(user);
-    await repositories.authRepo.saveCurrentUser(user);
-    return user;
   }
 }
 
-// Active Auth Provider: Supabase if configured, otherwise fallback to Local Demo
-export const authService: IAuthProvider = isSupabaseConfigured()
-  ? new SupabaseAuthService()
-  : new LocalDemoAuthService();
+export const authService = new ProductionSupabaseAuthService();

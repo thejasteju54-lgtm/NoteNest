@@ -7,6 +7,7 @@ export interface Note {
   fileSize: number;
   fileType: string;
   filePath?: string;
+  storagePath?: string;
   createdAt: string;
   updatedAt: string;
 }

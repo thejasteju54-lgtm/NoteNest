@@ -1,6 +1,7 @@
 -- ==============================================================================
 -- NoteNest Supabase Database & Storage Setup Script
 -- Run this script in the Supabase SQL Editor to configure all tables, RLS, & storage
+-- Project: NoteNest
 -- ==============================================================================
 
 -- 1. Create Profiles Table (Linked to auth.users)
@@ -28,15 +29,15 @@ CREATE TABLE IF NOT EXISTS public.notes (
   subject_id UUID NOT NULL REFERENCES public.subjects(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   file_name TEXT NOT NULL,
-  file_path TEXT NOT NULL,
+  storage_path TEXT NOT NULL,
   file_size BIGINT NOT NULL,
-  file_type TEXT NOT NULL DEFAULT 'application/pdf',
+  mime_type TEXT NOT NULL DEFAULT 'application/pdf',
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 -- ==============================================================================
--- Indexes for High Performance Querying
+-- Performance Indexes
 -- ==============================================================================
 
 CREATE INDEX IF NOT EXISTS idx_subjects_user_id ON public.subjects(user_id);
@@ -46,7 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_notes_user_subject ON public.notes(user_id, subje
 CREATE INDEX IF NOT EXISTS idx_notes_created_at ON public.notes(created_at DESC);
 
 -- ==============================================================================
--- Updated At Triggers
+-- Automatic updated_at & Profile Triggers
 -- ==============================================================================
 
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -84,10 +85,10 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ==============================================================================
--- Row Level Security (RLS) Policies
+-- Row Level Security (RLS) Policies on Database Tables
 -- ==============================================================================
 
--- Enable RLS
+-- Enable RLS on all tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subjects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
@@ -108,7 +109,7 @@ CREATE POLICY "Users can insert own profile"
   ON public.profiles FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = id);
 
--- Subjects Policies (Strict user ownership)
+-- Subjects Policies (Strict Multi-Tenant User Isolation)
 DROP POLICY IF EXISTS "Users can select own subjects" ON public.subjects;
 CREATE POLICY "Users can select own subjects"
   ON public.subjects FOR SELECT TO authenticated
@@ -129,7 +130,7 @@ CREATE POLICY "Users can delete own subjects"
   ON public.subjects FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
 
--- Notes Policies (Strict user ownership)
+-- Notes Policies (Strict Multi-Tenant User Isolation)
 DROP POLICY IF EXISTS "Users can select own notes" ON public.notes;
 CREATE POLICY "Users can select own notes"
   ON public.notes FOR SELECT TO authenticated
@@ -151,34 +152,34 @@ CREATE POLICY "Users can delete own notes"
   USING (auth.uid() = user_id);
 
 -- ==============================================================================
--- Storage Bucket & Security Policies for PDFs
+-- Private Storage Bucket & Storage Security Policies
 -- ==============================================================================
 
--- 1. Create Private 'notes' Storage Bucket (50MB limit, PDF only)
+-- 1. Create Private 'notenest-files' Storage Bucket (50MB limit, PDF only)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('notes', 'notes', false, 52428800, ARRAY['application/pdf'])
+VALUES ('notenest-files', 'notenest-files', false, 52428800, ARRAY['application/pdf'])
 ON CONFLICT (id) DO UPDATE SET
   public = false,
   file_size_limit = 52428800,
   allowed_mime_types = ARRAY['application/pdf'];
 
--- 2. Storage RLS Policies: Path format must be {userId}/{subjectId}/{fileName}.pdf
+-- 2. Storage RLS Policies: Path format must be {userId}/{subjectId}/{uniqueFileName}.pdf
 DROP POLICY IF EXISTS "Users can read own notes storage" ON storage.objects;
 CREATE POLICY "Users can read own notes storage"
   ON storage.objects FOR SELECT TO authenticated
-  USING (bucket_id = 'notes' AND (storage.foldername(name))[1] = auth.uid()::text);
+  USING (bucket_id = 'notenest-files' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 DROP POLICY IF EXISTS "Users can upload own notes storage" ON storage.objects;
 CREATE POLICY "Users can upload own notes storage"
   ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'notes' AND (storage.foldername(name))[1] = auth.uid()::text);
+  WITH CHECK (bucket_id = 'notenest-files' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 DROP POLICY IF EXISTS "Users can update own notes storage" ON storage.objects;
 CREATE POLICY "Users can update own notes storage"
   ON storage.objects FOR UPDATE TO authenticated
-  USING (bucket_id = 'notes' AND (storage.foldername(name))[1] = auth.uid()::text);
+  USING (bucket_id = 'notenest-files' AND (storage.foldername(name))[1] = auth.uid()::text);
 
 DROP POLICY IF EXISTS "Users can delete own notes storage" ON storage.objects;
 CREATE POLICY "Users can delete own notes storage"
   ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'notes' AND (storage.foldername(name))[1] = auth.uid()::text);
+  USING (bucket_id = 'notenest-files' AND (storage.foldername(name))[1] = auth.uid()::text);

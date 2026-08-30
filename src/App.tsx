@@ -1,8 +1,7 @@
-import React from 'react';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { useNoteNest } from '@/context/NoteNestContext';
 import { Navbar } from '@/components/layout/Navbar';
-import { MigrationBanner } from '@/components/layout/MigrationBanner';
 import { GreetingBanner } from '@/components/dashboard/GreetingBanner';
 import { SubjectGrid } from '@/components/dashboard/SubjectGrid';
 import { RecentNotes } from '@/components/dashboard/RecentNotes';
@@ -13,10 +12,12 @@ import { SettingsView } from '@/components/settings/SettingsView';
 import { UploadModal } from '@/components/upload/UploadModal';
 import { SubjectModal } from '@/components/subjects/SubjectModal';
 import { PDFViewerModal } from '@/components/viewer/PDFViewerModal';
+import { Login } from '@/pages/Login';
+import { Signup } from '@/pages/Signup';
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const { isLoading: isAuthLoading, isSupabase } = useAuth();
+  const { user, session, loading } = useAuth();
   const {
     activePage,
     subjects,
@@ -25,7 +26,26 @@ export const App: React.FC = () => {
     isLoading: isDataLoading,
   } = useNoteNest();
 
-  if (isAuthLoading) {
+  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
+
+  // Handle URL hash routing if present (#/signup or #/login)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.includes('signup')) {
+        setAuthView('signup');
+      } else if (hash.includes('login')) {
+        setAuthView('login');
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // 1. Initial Session Loading (Prevents flickering)
+  if (loading) {
     return (
       <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-accent-sage/20 text-accent-sage flex items-center justify-center animate-pulse">
@@ -38,6 +58,29 @@ export const App: React.FC = () => {
     );
   }
 
+  // 2. Unauthenticated Routes (Login & Signup)
+  if (!user || !session) {
+    if (authView === 'signup') {
+      return (
+        <Signup
+          onNavigateToLogin={() => {
+            window.location.hash = '#login';
+            setAuthView('login');
+          }}
+        />
+      );
+    }
+    return (
+      <Login
+        onNavigateToSignup={() => {
+          window.location.hash = '#signup';
+          setAuthView('signup');
+        }}
+      />
+    );
+  }
+
+  // 3. Protected Application View
   return (
     <div className="min-h-screen bg-canvas text-slate-900 flex flex-col selection:bg-accent-sage/20">
       {/* Top Navbar */}
@@ -45,9 +88,6 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Safe Migration Banner when local notes exist */}
-        <MigrationBanner />
-
         {searchQuery.trim() && searchResults ? (
           /* Search Results View */
           <SearchResultsView />
@@ -91,12 +131,8 @@ export const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>NoteNest — Your notes. Organized.</span>
           <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isSupabase ? 'bg-emerald-500' : 'bg-amber-400'
-              }`}
-            />
-            {isSupabase ? 'Connected to Supabase Cloud' : 'Local Demo Storage Mode'}
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            Protected by Supabase Row-Level Security
           </span>
         </div>
       </footer>

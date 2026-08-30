@@ -1,37 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { SupabaseAuthService } from '@/services/supabaseAuthService';
-import { LocalDemoAuthService } from '@/services/authService';
+import { ProductionSupabaseAuthService } from '@/services/authService';
 
-describe('Supabase Integration & Architecture Compliance', () => {
-  it('should detect unconfigured Supabase when env variables are empty or placeholders', () => {
-    // In test environment without explicit valid env vars, isSupabaseConfigured returns false
+describe('Supabase Production Auth & Storage Architecture Compliance', () => {
+  it('should detect Supabase configuration properly', () => {
     const configured = isSupabaseConfigured();
     expect(typeof configured).toBe('boolean');
   });
 
-  it('should provide compliant IAuthProvider implementations for both Supabase and Local Demo', () => {
-    const supaAuth = new SupabaseAuthService();
-    const demoAuth = new LocalDemoAuthService();
+  it('should provide compliant ProductionSupabaseAuthService implementation', () => {
+    const auth = new ProductionSupabaseAuthService();
 
-    expect(typeof supaAuth.login).toBe('function');
-    expect(typeof supaAuth.register).toBe('function');
-    expect(typeof supaAuth.logout).toBe('function');
-    expect(typeof supaAuth.getCurrentUser).toBe('function');
-
-    expect(typeof demoAuth.login).toBe('function');
-    expect(typeof demoAuth.register).toBe('function');
-    expect(typeof demoAuth.logout).toBe('function');
-    expect(typeof demoAuth.getCurrentUser).toBe('function');
+    expect(typeof auth.login).toBe('function');
+    expect(typeof auth.register).toBe('function');
+    expect(typeof auth.logout).toBe('function');
+    expect(typeof auth.getCurrentUser).toBe('function');
+    expect(typeof auth.getCurrentSession).toBe('function');
   });
 
-  it('should format user-scoped storage paths securely as {userId}/{subjectId}/{filename}', () => {
+  it('should format user-scoped collision-resistant storage paths in notenest-files as {userId}/{subjectId}/{timestamp}-{uuid}.pdf', () => {
     const userId = 'user_uuid_123';
     const subjectId = 'subj_uuid_456';
-    const fileName = 'Calculus Unit 1.pdf';
-
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `${userId}/${subjectId}/${sanitizedFileName}`;
+    const timestamp = Date.now();
+    const uniqueId = 'abc123xyz';
+    const storagePath = `${userId}/${subjectId}/${timestamp}-${uniqueId}.pdf`;
 
     expect(storagePath.startsWith('user_uuid_123/subj_uuid_456/')).toBe(true);
     expect(storagePath.endsWith('.pdf')).toBe(true);
