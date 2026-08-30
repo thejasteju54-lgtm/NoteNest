@@ -1,12 +1,6 @@
 import { User, DemoAccount, IAuthProvider } from '@/types/auth';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { DEMO_ACCOUNTS } from './authService';
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+import { DEMO_ACCOUNTS, getInitials } from '@/config/demoAccounts';
 
 export class SupabaseAuthService implements IAuthProvider {
   isConfigured(): boolean {

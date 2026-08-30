@@ -80,6 +80,7 @@ describe('Live Supabase Backend & RLS Security Verification', () => {
 
     const userAId = authA.user.id;
     const userBId = authB.user.id;
+    expect(userBId).toBeTruthy();
 
     // --- TEST A: User A Creates Subject ---
     const { data: subjA, error: subjAErr } = await clientA
