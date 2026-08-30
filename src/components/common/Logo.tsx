@@ -22,7 +22,7 @@ export const LogoIcon: React.FC<{ sizeClass?: string; className?: string }> = ({
         className
       )}
     >
-      {/* Minimalist Geometric 'N' & Folded Notes Emblem */}
+      {/* Clean Minimalist Geometric 'N' & Folded Notes Emblem */}
       <svg
         viewBox="0 0 512 512"
         fill="none"
@@ -57,10 +57,6 @@ export const LogoIcon: React.FC<{ sizeClass?: string; className?: string }> = ({
           d="M300 136 C300 127.163 307.163 120 316 120 H348 C356.837 120 364 127.163 364 136 V376 C364 384.837 356.837 392 348 392 H316 C307.163 392 300 384.837 300 376 Z"
           fill="url(#logoRibbon)"
         />
-
-        {/* Luminous Active Accent Dot */}
-        <circle cx="376" cy="116" r="26" fill="#52B788" />
-        <circle cx="376" cy="116" r="16" fill="#74D3A5" />
       </svg>
     </div>
   );
@@ -86,14 +82,11 @@ export const Logo: React.FC<LogoProps> = ({
       <LogoIcon sizeClass={currentSize.icon} />
       {showText && (
         <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 leading-none">
-            <span className={clsx('tracking-tight text-slate-900', currentSize.title)}>
-              NoteNest
-            </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-          </div>
+          <span className={clsx('tracking-tight text-slate-900 leading-none', currentSize.title)}>
+            NoteNest
+          </span>
           {subtitle && (
-            <span className={clsx('text-slate-500 font-medium tracking-wide mt-0.5', currentSize.sub)}>
+            <span className={clsx('text-slate-500 font-medium tracking-wide mt-1', currentSize.sub)}>
               {subtitle}
             </span>
           )}

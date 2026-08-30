@@ -18,12 +18,6 @@
       <stop offset="0%" stop-color="#73A992" stop-opacity="0.9"/>
       <stop offset="100%" stop-color="#4D806B" stop-opacity="0.75"/>
     </linearGradient>
-
-    <!-- Accent Dot Glow -->
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
   </defs>
 
   <!-- Squircle Base with Subtle Border -->
@@ -39,8 +33,4 @@
 
   <!-- Right Pillar -->
   <path d="M300 136 C300 127.163 307.163 120 316 120 H348 C356.837 120 364 127.163 364 136 V376 C364 384.837 356.837 392 348 392 H316 C307.163 392 300 384.837 300 376 Z" fill="url(#frontRibbon)"/>
-
-  <!-- Glowing Luminous Accent Indicator Dot (Top Right) -->
-  <circle cx="376" cy="116" r="28" fill="#52B788" filter="url(#glow)"/>
-  <circle cx="376" cy="116" r="20" fill="#74D3A5"/>
 </svg>
