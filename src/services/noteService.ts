@@ -108,7 +108,7 @@ export class NoteService {
 
     const blob = await this.getNoteFileBlob(userId, id);
     if (!blob) {
-      throw new Error('PDF file data not found in local storage.');
+      throw new Error('PDF file data not found in cloud storage.');
     }
 
     const url = URL.createObjectURL(blob);

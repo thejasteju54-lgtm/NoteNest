@@ -47,7 +47,7 @@ export const PDFViewerModal: React.FC = () => {
 
         const blob = await noteService.getNoteFileBlob(user!.id, previewNoteId!);
         if (!blob) {
-          throw new Error('PDF file binary data missing from local storage.');
+          throw new Error('PDF file binary data missing from cloud storage.');
         }
 
         const url = URL.createObjectURL(blob);

@@ -1,6 +1,6 @@
 -- ==============================================================================
--- NoteNest Supabase Database & Storage Setup Script
--- Run this script in the Supabase SQL Editor to configure all tables, RLS, & storage
+-- NoteNest Supabase Database & Storage Hardened Security Script
+-- Production-Ready Schema, Defense-in-Depth RLS, & Secure Cloud Storage
 -- Project: NoteNest
 -- ==============================================================================
 
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.notes (
 );
 
 -- ==============================================================================
--- Performance Indexes
+-- Performance Indexes (Optimized for Multi-Tenant Access)
 -- ==============================================================================
 
 CREATE INDEX IF NOT EXISTS idx_subjects_user_id ON public.subjects(user_id);
@@ -47,11 +47,14 @@ CREATE INDEX IF NOT EXISTS idx_notes_user_subject ON public.notes(user_id, subje
 CREATE INDEX IF NOT EXISTS idx_notes_created_at ON public.notes(created_at DESC);
 
 -- ==============================================================================
--- Automatic updated_at & Profile Triggers
+-- Automatic updated_at & Profile Triggers (Hardened Search Path)
 -- ==============================================================================
 
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER 
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
@@ -68,7 +71,10 @@ CREATE OR REPLACE TRIGGER update_notes_updated_at
 
 -- Auto-create Profile on Auth Signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER 
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO public.profiles (id, display_name)
   VALUES (
@@ -78,7 +84,7 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
