@@ -23,9 +23,13 @@ export interface DemoAccount {
 
 export interface IAuthProvider {
   getCurrentUser(): Promise<User | null>;
-  login(email: string, name?: string): Promise<User>;
-  register(name: string, email: string): Promise<User>;
+  login(email: string, password?: string): Promise<User>;
+  register(name: string, email: string, password?: string): Promise<User>;
   logout(): Promise<void>;
+  resetPassword?(email: string): Promise<void>;
+  loginWithGoogle?(): Promise<void>;
+  onAuthStateChange?(callback: (user: User | null) => void): () => void;
+  isConfigured(): boolean;
   listDemoAccounts(): readonly DemoAccount[];
   switchDemoAccount(accountId: string): Promise<User>;
 }

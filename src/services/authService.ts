@@ -1,5 +1,7 @@
 import { User, DemoAccount, IAuthProvider } from '@/types/auth';
 import { repositories } from '@/repositories';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { SupabaseAuthService } from './supabaseAuthService';
 
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   {
@@ -25,6 +27,10 @@ function getInitials(name: string): string {
 }
 
 export class LocalDemoAuthService implements IAuthProvider {
+  isConfigured(): boolean {
+    return false; // Local demo mode
+  }
+
   async getCurrentUser(): Promise<User | null> {
     const user = await repositories.authRepo.getCurrentUser();
     if (user) return user;
@@ -114,4 +120,7 @@ export class LocalDemoAuthService implements IAuthProvider {
   }
 }
 
-export const authService = new LocalDemoAuthService();
+// Active Auth Provider: Supabase if configured, otherwise fallback to Local Demo
+export const authService: IAuthProvider = isSupabaseConfigured()
+  ? new SupabaseAuthService()
+  : new LocalDemoAuthService();

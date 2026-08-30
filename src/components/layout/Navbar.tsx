@@ -12,11 +12,13 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  Cloud,
+  HardDrive,
 } from 'lucide-react';
 import { AuthModal } from '@/components/auth/AuthModal';
 
 export const Navbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, isSupabase, logout } = useAuth();
   const {
     navigateTo,
     openUploadModal,
@@ -141,14 +143,28 @@ export const Navbar: React.FC = () => {
               </button>
 
               {isUserMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-2xl glass-modal p-1.5 shadow-card-hover border border-slate-200 z-50 animate-in fade-in zoom-in-95">
+                <div className="absolute right-0 mt-2 w-60 rounded-2xl glass-modal p-1.5 shadow-card-hover border border-slate-200 z-50 animate-in fade-in zoom-in-95">
                   <div className="px-3 py-2 border-b border-slate-100 mb-1">
                     <p className="text-xs font-semibold text-slate-900 truncate">
                       {user?.name || 'Student'}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
-                    <span className="inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-sage/15 text-accent-sage-hover">
-                      Local Demo Mode
+                    <span
+                      className={`inline-flex items-center gap-1 mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                        isSupabase
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {isSupabase ? (
+                        <>
+                          <Cloud className="w-2.5 h-2.5" /> Supabase Cloud
+                        </>
+                      ) : (
+                        <>
+                          <HardDrive className="w-2.5 h-2.5" /> Local Demo Mode
+                        </>
+                      )}
                     </span>
                   </div>
 
@@ -161,7 +177,7 @@ export const Navbar: React.FC = () => {
                     className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
                   >
                     <User className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Switch Demo Account</span>
+                    <span>{isSupabase ? 'Account & Profiles' : 'Switch Demo Account'}</span>
                   </button>
 
                   <button
@@ -219,7 +235,7 @@ export const Navbar: React.FC = () => {
         </div>
       </header>
 
-      {/* Auth Modal for switching demo users */}
+      {/* Auth Modal for authentication & switching users */}
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </>
   );

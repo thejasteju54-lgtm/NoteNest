@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useNoteNest } from '@/context/NoteNestContext';
 import { Navbar } from '@/components/layout/Navbar';
+import { MigrationBanner } from '@/components/layout/MigrationBanner';
 import { GreetingBanner } from '@/components/dashboard/GreetingBanner';
 import { SubjectGrid } from '@/components/dashboard/SubjectGrid';
 import { RecentNotes } from '@/components/dashboard/RecentNotes';
@@ -15,7 +16,7 @@ import { PDFViewerModal } from '@/components/viewer/PDFViewerModal';
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const { isLoading: isAuthLoading } = useAuth();
+  const { isLoading: isAuthLoading, isSupabase } = useAuth();
   const {
     activePage,
     subjects,
@@ -44,6 +45,9 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Safe Migration Banner when local notes exist */}
+        <MigrationBanner />
+
         {searchQuery.trim() && searchResults ? (
           /* Search Results View */
           <SearchResultsView />
@@ -86,8 +90,13 @@ export const App: React.FC = () => {
       <footer className="w-full border-t border-slate-200/80 py-6 mt-auto text-center text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>NoteNest — Your notes. Organized.</span>
-          <span className="text-[11px] text-slate-400">
-            Fast, minimal academic document organizer • Local storage persistence
+          <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isSupabase ? 'bg-emerald-500' : 'bg-amber-400'
+              }`}
+            />
+            {isSupabase ? 'Connected to Supabase Cloud' : 'Local Demo Storage Mode'}
           </span>
         </div>
       </footer>

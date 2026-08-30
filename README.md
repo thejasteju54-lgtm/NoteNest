@@ -2,86 +2,54 @@
 
 > **"Your notes. Organized."**
 
-NoteNest is a polished, local-first MVP with a production-ready frontend architecture designed for future backend, authentication, and cloud storage integration.
-
-It is built specifically for college students to organize, upload, search, and view academic PDFs by subject, solving the problem of lost notes in cluttered WhatsApp study groups.
+NoteNest is a fast, minimal academic document organizer built for college students to organize, upload, search, and view lecture PDFs by subject.
 
 ---
 
-## 🧭 Architecture Classification & Current Implementation vs Future
+## 🧭 Architecture Overview
 
-| Aspect | Current MVP Implementation | Future Production Architecture |
-| :--- | :--- | :--- |
-| **Authentication** | **Local Demo Authentication** (`AuthProvider` -> `LocalDemoAuthProvider`) with isolated demo student profiles (*Thejas - CS Major*, *Alex - EE Major*) | Server-side OAuth / OpenID Connect / JWT token authentication |
-| **Storage & Persistence** | **Browser IndexedDB Persistence** (PDF Blobs and metadata persist across normal browser sessions and refreshes) | Cloud object storage (e.g. AWS S3, Cloudflare R2) + Managed PostgreSQL database |
-| **Authorization** | **Logical Client-Side Partitioning** per `userId` at the repository layer | Strict server-side RBAC, signed URLs, and tenant database policies |
-| **Search** | **Normalized Substring Search** (instant sub-millisecond matching across subjects and note titles) | Hybrid full-text index & vector search over PDF contents |
-| **Data Portability** | **JSON + PDF Archive Export & Import** in Settings view | Automatic cross-device cloud sync |
+NoteNest is architected with a decoupled **Repository Pattern**, allowing seamless operation in two modes:
+1. **Supabase Cloud Backend**: PostgreSQL with Row-Level Security (RLS), Supabase Auth (Email/Password, Password Reset, Google OAuth), and private S3-compatible cloud storage for PDF notes.
+2. **Local Demo Mode**: Browser IndexedDB persistence and client-side demo accounts (*Thejas - CS Major*, *Alex - EE Major*) for local exploration and offline use.
 
 ---
 
-## 🏗 Modular Project Structure
+## ⚙️ Connecting to your Supabase Project
 
+### 1. Configure Environment Variables
+Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
 ```
-notenest/
-├── index.html                   # HTML entry point (Inter & JetBrains Mono fonts)
-├── vite.config.ts               # Vite configuration with @/ alias
-├── package.json                 # Core dependencies (React 19, TypeScript, Lucide, Tailwind)
-├── tsconfig.json                # Strict TypeScript configuration
-├── tailwind.config.js           # Design tokens matching Design.md
-│
-├── src/
-│   ├── main.tsx                 # App mount & StrictMode
-│   ├── App.tsx                  # App layout, router view switcher, global toast provider
-│   ├── index.css                # CSS variables, glassmorphic utilities, calm academic theme
-│   │
-│   ├── config/
-│   │   └── constants.ts         # Centralized configs: MAX_FILE_SIZE (50MB), ALLOWED_EXTENSIONS
-│   │
-│   ├── types/                   # Domain Types
-│   │   ├── auth.ts              # User, Session, AuthProvider interface
-│   │   ├── subject.ts           # Subject, SubjectColor, SubjectStats
-│   │   ├── note.ts              # Note, NoteSortOption, FileValidationResult
-│   │   └── repository.ts        # ISubjectRepository, INoteRepository, IAuthRepository
-│   │
-│   ├── repositories/            # Data Access Layer (Repository Pattern)
-│   │   ├── index.ts             # Repository factory / dependency injection
-│   │   ├── indexeddb/           # Browser IndexedDB implementation
-│   │   │   ├── db.ts            # IndexedDB schema, migrations, error handling
-│   │   │   ├── subjectRepo.ts   # IndexedDBSubjectRepository
-│   │   │   └── noteRepo.ts      # IndexedDBNoteRepository
-│   │   └── auth/
-│   │       └── localAuthRepo.ts # LocalDemoAuthRepository
-│   │
-│   ├── services/                # Business Logic Layer
-│   │   ├── authService.ts       # Local demo authentication & user sessions
-│   │   ├── subjectService.ts    # Subject CRUD, ownership validation, note counts
-│   │   ├── noteService.ts       # Note upload, rename, delete, sorting, size calculation
-│   │   ├── fileValidationService.ts # Extension, MIME, and %PDF- magic signature check
-│   │   ├── searchService.ts     # Normalized substring search across subjects & notes
-│   │   └── backupService.ts     # Export/Import JSON + PDF blob backup
-│   │
-│   ├── context/                 # Application Contexts
-│   │   ├── AuthContext.tsx      # Auth state provider
-│   │   ├── NoteNestContext.tsx  # Subjects, notes, active view, search query
-│   │   └── ToastContext.tsx     # Toast notification dispatcher
-│   │
-│   ├── components/              # Reusable UI Primitives & Domain Views
-│   │   ├── common/              # Button, Input, Modal, Toast, Badge, Dropdown, ConfirmDialog
-│   │   ├── layout/              # Navbar, Breadcrumbs, StorageIndicator
-│   │   ├── dashboard/           # GreetingBanner, SubjectGrid, SubjectCard, RecentNotes, EmptyState
-│   │   ├── subjects/            # SubjectHeader, NoteGrid, NoteList, NoteCard, SubjectModal, NoteRenameModal
-│   │   ├── upload/              # UploadModal, DropZone
-│   │   ├── viewer/              # PDFViewerModal
-│   │   ├── settings/            # SettingsView (Demo user switch, storage stats, backup export/import)
-│   │   └── auth/                # AuthModal (Local Demo Login / Switch User)
-│   │
-│   └── utils/                   # Helpers: formatters (dates, sizes), sample PDF fixtures
-│
-└── tests/                       # Unit & Integration Tests (Vitest)
-    ├── fileValidation.test.ts   # PDF signature, extension, size tests
-    └── services.test.ts         # Subject CRUD, note management, search, and backup tests
+Populate `.env` with your Supabase Project credentials:
+```env
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-publishable-key
 ```
+
+### 2. Run Database & Storage Schema Migration
+Open your **Supabase Dashboard → SQL Editor** and execute the complete setup script located at:
+📁 **[`docs/architecture/supabase_schema.sql`](file:///docs/architecture/supabase_schema.sql)**
+
+This script sets up:
+- `public.profiles`, `public.subjects`, and `public.notes` tables.
+- Cascading foreign keys and performance indexes.
+- **Row Level Security (RLS)** policies strictly restricting row access to `auth.uid() = user_id`.
+- The private `'notes'` **Storage Bucket** with user-scoped path security (`{userId}/{subjectId}/*`).
+
+### 3. (Optional) Configure Google OAuth in Supabase Dashboard
+1. In Supabase Dashboard, navigate to **Authentication → Providers → Google**.
+2. Enable Google Provider and enter your Google Client ID and Secret from Google Cloud Console.
+3. Add `http://localhost:5173` (and production domain) to **URL Configuration → Redirect URLs**.
+
+---
+
+## 🔒 Security Principles
+
+- **No Secret Keys in Frontend**: Only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are used. No `service_role` keys or database passwords.
+- **Database & Storage Row Level Security**: User A cannot read, insert, update, or delete User B's rows or PDF files.
+- **Layered File Validation**: Validates `.pdf` extension, MIME type, `%PDF-` signature bytes (`0x25, 0x50, 0x44, 0x46, 0x2D`), and 50MB file size limit.
+- **Safe Opt-In Migration**: When signing into a Supabase account with existing local notes on the browser, an explicit import banner is presented.
 
 ---
 

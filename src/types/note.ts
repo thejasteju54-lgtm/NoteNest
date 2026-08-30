@@ -6,6 +6,7 @@ export interface Note {
   fileName: string;
   fileSize: number;
   fileType: string;
+  filePath?: string;
   createdAt: string;
   updatedAt: string;
 }
