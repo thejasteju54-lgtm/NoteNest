@@ -15,54 +15,52 @@ export const LogoIcon: React.FC<{ sizeClass?: string; className?: string }> = ({
   return (
     <div
       className={clsx(
-        'relative rounded-xl bg-gradient-to-br from-accent-sage via-[#6E8F7F] to-[#5C7D6E]',
-        'flex items-center justify-center text-white shadow-subtle shadow-accent-sage/25 shrink-0 overflow-hidden',
-        'border border-white/20 select-none group-hover:scale-105 transition-transform duration-200',
+        'relative rounded-xl bg-gradient-to-br from-[#14261F] via-[#1E3D31] to-[#2D5A4A]',
+        'flex items-center justify-center text-white shadow-subtle shadow-emerald-950/30 shrink-0 select-none overflow-hidden',
+        'border border-emerald-500/20 group-hover:scale-105 transition-transform duration-200',
         sizeClass,
         className
       )}
     >
-      {/* Minimalist Geometric Nest + Document Icon SVG */}
+      {/* Minimalist Geometric 'N' & Folded Notes Emblem */}
       <svg
-        viewBox="0 0 32 32"
+        viewBox="0 0 512 512"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="w-[62%] h-[62%] text-white"
+        className="w-[72%] h-[72%]"
       >
-        {/* Outer Nest Cradle */}
+        <defs>
+          <linearGradient id="logoRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFFFFF"/>
+            <stop offset="100%" stop-color="#E2EBE6"/>
+          </linearGradient>
+          <linearGradient id="logoFold" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#73A992" stop-opacity="0.95"/>
+            <stop offset="100%" stop-color="#4D806B" stop-opacity="0.8"/>
+          </linearGradient>
+        </defs>
+
+        {/* Left Pillar */}
         <path
-          d="M6 18.5C6 23.1944 9.80558 27 14.5 27H20C23.866 27 27 23.866 27 20C27 16.134 23.866 13 20 13H18.5"
-          stroke="currentColor"
-          strokeWidth="2.25"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="opacity-90"
+          d="M148 136 C148 127.163 155.163 120 164 120 H196 C204.837 120 212 127.163 212 136 V376 C212 384.837 204.837 392 196 392 H164 C155.163 392 148 384.837 148 376 Z"
+          fill="url(#logoRibbon)"
         />
-        {/* Layered Document / Note Sheets inside Nest */}
+
+        {/* Diagonal Note Fold */}
         <path
-          d="M10 7C10 5.89543 10.8954 5 12 5H18.5L23 9.5V17C23 18.1046 22.1046 19 21 19H12C10.8954 19 10 18.1046 10 17V7Z"
-          fill="currentColor"
-          fillOpacity="0.3"
-          stroke="currentColor"
-          strokeWidth="2.25"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          d="M196 128 L324 320 C329.5 328.5 332 338 332 348 V376 C332 384.837 324.837 392 316 392 H284 C275.163 392 267.5 385 262 376 L156 216 V144 C156 135.163 163.163 128 172 128 Z"
+          fill="url(#logoFold)"
         />
-        {/* Folded Top Corner on Note */}
+
+        {/* Right Pillar */}
         <path
-          d="M18.5 5V9.5H23"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          d="M300 136 C300 127.163 307.163 120 316 120 H348 C356.837 120 364 127.163 364 136 V376 C364 384.837 356.837 392 348 392 H316 C307.163 392 300 384.837 300 376 Z"
+          fill="url(#logoRibbon)"
         />
-        {/* Minimalist Content Bar */}
-        <path
-          d="M14 13.5H19"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+
+        {/* Luminous Active Accent Dot */}
+        <circle cx="376" cy="116" r="26" fill="#52B788" />
+        <circle cx="376" cy="116" r="16" fill="#74D3A5" />
       </svg>
     </div>
   );
@@ -92,7 +90,7 @@ export const Logo: React.FC<LogoProps> = ({
             <span className={clsx('tracking-tight text-slate-900', currentSize.title)}>
               NoteNest
             </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-accent-sage" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
           </div>
           {subtitle && (
             <span className={clsx('text-slate-500 font-medium tracking-wide mt-0.5', currentSize.sub)}>

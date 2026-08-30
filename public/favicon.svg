@@ -1,13 +1,46 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="64" height="64" rx="18" fill="url(#grad)" />
-  <path d="M12 37C12 46.3888 19.6112 54 29 54H40C47.732 54 54 47.732 54 40C54 32.268 47.732 26 40 26H37" stroke="white" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
-  <path d="M20 14C20 11.7909 21.7909 10 24 10H37L46 19V34C46 36.2091 44.2091 38 42 38H24C21.7909 38 20 36.2091 20 34V14Z" fill="white" fill-opacity="0.3" stroke="white" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M37 10V19H46" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M28 27H38" stroke="white" stroke-width="4" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <linearGradient id="grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7E9C8D"/>
-      <stop offset="1" stop-color="#5C7D6E"/>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14261F"/>
+      <stop offset="50%" stop-color="#1E3D31"/>
+      <stop offset="100%" stop-color="#2D5A4A"/>
     </linearGradient>
+
+    <!-- Front Ribbon Gradient -->
+    <linearGradient id="frontRibbon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E2EBE6"/>
+    </linearGradient>
+
+    <!-- Translucent Fold Layer -->
+    <linearGradient id="transFold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#73A992" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#4D806B" stop-opacity="0.75"/>
+    </linearGradient>
+
+    <!-- Accent Dot Glow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
   </defs>
+
+  <!-- Squircle Base with Subtle Border -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  <rect width="504" height="504" x="4" y="4" rx="124" fill="none" stroke="#52B788" stroke-opacity="0.25" stroke-width="8"/>
+
+  <!-- Minimalist Geometric 'N' & Folded Notes Emblem -->
+  <!-- Left Pillar -->
+  <path d="M148 136 C148 127.163 155.163 120 164 120 H196 C204.837 120 212 127.163 212 136 V376 C212 384.837 204.837 392 196 392 H164 C155.163 392 148 384.837 148 376 Z" fill="url(#frontRibbon)"/>
+
+  <!-- Translucent Diagonal Fold Sheet -->
+  <path d="M196 128 L324 320 C329.5 328.5 332 338 332 348 V376 C332 384.837 324.837 392 316 392 H284 C275.163 392 267.5 385 262 376 L156 216 V144 C156 135.163 163.163 128 172 128 Z" fill="url(#transFold)"/>
+
+  <!-- Right Pillar -->
+  <path d="M300 136 C300 127.163 307.163 120 316 120 H348 C356.837 120 364 127.163 364 136 V376 C364 384.837 356.837 392 348 392 H316 C307.163 392 300 384.837 300 376 Z" fill="url(#frontRibbon)"/>
+
+  <!-- Glowing Luminous Accent Indicator Dot (Top Right) -->
+  <circle cx="376" cy="116" r="28" fill="#52B788" filter="url(#glow)"/>
+  <circle cx="376" cy="116" r="20" fill="#74D3A5"/>
 </svg>

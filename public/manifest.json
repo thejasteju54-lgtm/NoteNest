@@ -1,0 +1,16 @@
+{
+  "name": "NoteNest",
+  "short_name": "NoteNest",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F7F5",
+  "theme_color": "#1E3D31",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
