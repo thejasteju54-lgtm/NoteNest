@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNoteNest } from '@/context/NoteNestContext';
 import { Button } from '@/components/common/Button';
+import { Logo } from '@/components/common/Logo';
 import {
   FolderPlus,
   Upload,
   Search,
   X,
-  BookOpen,
   Settings,
   LogOut,
   ChevronDown,
@@ -50,7 +50,7 @@ export const Navbar: React.FC = () => {
             clearSearch();
             navigateTo({ type: 'dashboard' });
           }}
-          className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
+          className="cursor-pointer select-none shrink-0"
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
@@ -60,17 +60,7 @@ export const Navbar: React.FC = () => {
             }
           }}
         >
-          <div className="w-8 h-8 rounded-xl bg-accent-sage flex items-center justify-center text-white shadow-subtle group-hover:bg-accent-sage-hover transition-colors">
-            <BookOpen className="w-4 h-4" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-base font-bold tracking-tight text-slate-900 leading-none">
-              NoteNest
-            </span>
-            <span className="text-[10px] text-slate-500 font-medium tracking-wide">
-              Your notes. Organized.
-            </span>
-          </div>
+          <Logo size="md" />
         </div>
 
         {/* Global Search Bar */}

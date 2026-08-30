@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { LogoIcon } from '@/components/common/Logo';
 import {
   evaluatePasswordStrength,
   validateStudentEmail,
 } from '@/utils/authValidation';
 import {
-  BookOpen,
   Lock,
   Mail,
   User as UserIcon,
@@ -104,8 +104,8 @@ export const Signup: React.FC<SignupProps> = ({ onNavigateToLogin }) => {
     <div className="min-h-screen bg-canvas flex flex-col justify-center py-10 sm:px-6 lg:px-8">
       {/* Brand Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-sage text-white shadow-subtle mb-3">
-          <BookOpen className="w-6 h-6" />
+        <div className="flex justify-center mb-3">
+          <LogoIcon sizeClass="w-13 h-13 rounded-2xl" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
           Create your NoteNest Account
