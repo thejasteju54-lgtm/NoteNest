@@ -169,7 +169,7 @@ export const UploadModal: React.FC = () => {
                     key={subj.id}
                     type="button"
                     onClick={() => setSelectedSubjectId(subj.id)}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                    className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
                       isSelected
                         ? 'border-accent-sage bg-accent-sage/10 text-slate-900 ring-1 ring-accent-sage'
                         : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
@@ -191,7 +191,7 @@ export const UploadModal: React.FC = () => {
         {isUploading && (
           <div className="space-y-1.5 pt-2">
             <div className="flex items-center justify-between text-xs text-slate-600 font-medium">
-              <span>Storing PDF locally in IndexedDB...</span>
+              <span>Uploading to cloud storage...</span>
               <span>{uploadProgress}%</span>
             </div>
             <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">

@@ -56,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
       role="dialog"
       aria-modal="true"
     >
@@ -72,21 +72,21 @@ export const Modal: React.FC<ModalProps> = ({
         ref={modalRef}
         className={clsx(
           'relative w-full glass-modal rounded-2xl shadow-modal z-10 overflow-hidden flex flex-col',
-          'transform transition-all duration-200 animate-in fade-in zoom-in-95',
+          'transform transition-all duration-200 animate-in fade-in zoom-in-95 my-auto',
           maxWidthStyles[maxWidth]
         )}
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-start justify-between p-5 pb-3 border-b border-slate-100/80">
-            <div className="space-y-1 pr-4">
+          <div className="flex items-start justify-between p-4 sm:p-5 pb-3 border-b border-slate-100/80">
+            <div className="space-y-0.5 sm:space-y-1 pr-4 min-w-0">
               {title && (
-                <h3 className="text-base font-semibold text-slate-900">
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
                   {title}
                 </h3>
               )}
               {description && (
-                <p className="text-xs text-slate-500">{description}</p>
+                <p className="text-xs text-slate-500 line-clamp-2 sm:line-clamp-none">{description}</p>
               )}
             </div>
             {showCloseButton && (
@@ -94,16 +94,16 @@ export const Modal: React.FC<ModalProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Close modal"
-                className="rounded-lg p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                className="rounded-xl p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             )}
           </div>
         )}
 
         {/* Content */}
-        <div className="p-5 overflow-y-auto max-h-[80vh]">{children}</div>
+        <div className="p-4 sm:p-5 overflow-y-auto max-h-[85vh]">{children}</div>
       </div>
     </div>
   );

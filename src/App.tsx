@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNoteNest } from '@/context/NoteNestContext';
 import { Navbar } from '@/components/layout/Navbar';
+import { MobileNav } from '@/components/layout/MobileNav';
 import { GreetingBanner } from '@/components/dashboard/GreetingBanner';
 import { SubjectGrid } from '@/components/dashboard/SubjectGrid';
 import { RecentNotes } from '@/components/dashboard/RecentNotes';
@@ -87,7 +88,7 @@ export const App: React.FC = () => {
       <Navbar />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 pb-24 md:pb-8">
         {searchQuery.trim() && searchResults ? (
           /* Search Results View */
           <SearchResultsView />
@@ -121,18 +122,21 @@ export const App: React.FC = () => {
         ) : null}
       </main>
 
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileNav />
+
       {/* Global Modals */}
       <UploadModal />
       <SubjectModal />
       <PDFViewerModal />
 
       {/* Minimal Footer */}
-      <footer className="w-full border-t border-slate-200/80 py-6 mt-auto text-center text-xs text-slate-400">
+      <footer className="w-full border-t border-slate-200/80 py-6 mt-auto text-center text-xs text-slate-400 hidden md:block">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>NoteNest — Your notes. Organized.</span>
           <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Protected by Supabase Row-Level Security
+            Protected by Row-Level Security & High-Capacity Cloud Storage
           </span>
         </div>
       </footer>

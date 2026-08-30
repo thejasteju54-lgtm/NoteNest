@@ -98,25 +98,25 @@ export const PDFViewerModal: React.FC = () => {
       maxWidth="4xl"
       showCloseButton={true}
     >
-      <div className="flex flex-col h-[82vh]">
+      <div className="flex flex-col h-[78vh] sm:h-[82vh]">
         {/* Document Meta Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
-          <div className="flex items-center gap-3 min-w-0 pr-4">
-            <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shrink-0">
-              <FileText className="w-5 h-5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-3 min-w-0 pr-2">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shrink-0">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base font-bold text-slate-900 truncate">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
                 {note?.title || 'PDF Document'}
               </h3>
-              <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 text-[11px] sm:text-xs text-slate-500 flex-wrap">
                 {subject && (
                   <Badge colorId={subject.colorId} label={subject.name} size="sm" />
                 )}
                 {note && (
                   <>
-                    <span>•</span>
-                    <span>{formatUploadDate(note.createdAt)}</span>
+                    <span className="hidden xs:inline">•</span>
+                    <span className="hidden xs:inline">{formatUploadDate(note.createdAt)}</span>
                     <span>•</span>
                     <span className="font-mono">{formatFileSize(note.fileSize)}</span>
                   </>
@@ -126,7 +126,7 @@ export const PDFViewerModal: React.FC = () => {
           </div>
 
           {/* Action toolbar */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto pt-1 sm:pt-0">
             <Button
               variant="outline"
               size="sm"
@@ -142,7 +142,8 @@ export const PDFViewerModal: React.FC = () => {
               onClick={handleOpenInNewTab}
               leftIcon={<ExternalLink className="w-3.5 h-3.5" />}
             >
-              Open Tab
+              <span className="hidden xs:inline">Open Tab</span>
+              <span className="xs:hidden">Open</span>
             </Button>
             <Button
               variant="primary"

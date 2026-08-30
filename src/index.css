@@ -19,19 +19,20 @@
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
   }
 }
 
 /* Glassmorphism utilities */
 .glass-nav {
-  background: rgba(247, 247, 245, 0.82);
+  background: rgba(247, 247, 245, 0.88);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(229, 231, 235, 0.85);
 }
 
 .glass-modal {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(229, 231, 235, 0.9);
@@ -42,6 +43,11 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(229, 231, 235, 0.8);
+}
+
+/* Safe area inset for modern mobile notches and home bars */
+.safe-bottom {
+  padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
 }
 
 /* Custom minimal scrollbar */
