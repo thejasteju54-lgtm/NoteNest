@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Community Discussions
+    url: https://github.com/thejasteju54-lgtm/NoteNest/discussions
+    about: Ask questions, share ideas, or get help from the community.
+  - name: 🛡️ Security Vulnerabilities
+    url: https://github.com/thejasteju54-lgtm/NoteNest/security/advisories
+    about: Report security issues privately according to our security policy.

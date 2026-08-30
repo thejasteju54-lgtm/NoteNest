@@ -1,12 +1,35 @@
 {
   "name": "notenest",
-  "private": true,
   "version": "1.0.0",
+  "private": false,
+  "description": "Clean and minimal academic note organizer for college students. Organize PDF notes by subject with cloud storage and secure auth.",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thejasteju54-lgtm/NoteNest.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thejasteju54-lgtm/NoteNest/issues"
+  },
+  "homepage": "https://note-nest-5gef.vercel.app/",
+  "keywords": [
+    "notenest",
+    "react",
+    "typescript",
+    "vite",
+    "supabase",
+    "postgresql",
+    "pdf-organizer",
+    "student-tools",
+    "education",
+    "open-source"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
