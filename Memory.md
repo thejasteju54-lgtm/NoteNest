@@ -23,6 +23,7 @@ This file records key architecture decisions, state transitions, context, and pe
 | 2026-09-06 | In-App PDF Rendering with PDF.js Canvas | Replaced native `<iframe>` PDF rendering with `PDFCanvasViewer` using `pdfjs-dist` to enable crisp, responsive, high-DPI in-app PDF viewing across Android Chrome, iOS Safari, PWA, and desktop browsers without plugin dependency. | **Accepted** |
 | 2026-09-06 | Backend Hardening & Supercharged Study Suite | Added exponential backoff retry policy (`withRetry`), self-healing `ErrorBoundary`, offline connectivity indicator (`NetworkStatusBar`), in-document PDF search, reading themes (Dark/Sepia), side-by-side study scratchpad, and starred/priority notes. | **Accepted** |
 | 2026-09-06 | Top Academic App Synthesis (RemNote, MarginNote, Obsidian, Notion, Zotero) | Integrated 3D Active Recall Flashcards Studio with auto-extraction, Global Spotlight Command Palette (`Ctrl+K`), PDF Page Thumbnail Strip Drawer, Distraction-Free Zen Mode, Built-in Pomodoro Focus Timer with Web Audio synthesizer chime, and Academic Study Streaks Widget. | **Accepted** |
+| 2026-09-06 | Continuous Vertical PDF Scroll Mode | Implemented frictionless continuous vertical scrolling across all document pages using `PDFPageCanvas` with `IntersectionObserver` lazy rendering. Users can now scroll continuously from page 1 to the end without repeatedly clicking page-turn buttons, while the page counter auto-updates dynamically. | **Accepted** |
 
 ---
 

@@ -25,6 +25,7 @@ import {
 import { Button } from '@/components/common/Button';
 import { userPreferences, ReadingTheme } from '@/services/userPreferences';
 import { PDFThumbnailStrip } from './PDFThumbnailStrip';
+import { PDFPageCanvas } from './PDFPageCanvas';
 
 // Configure pdfjs worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -49,7 +50,6 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   onFallback,
   externalPage,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -59,7 +59,6 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   const [rotation, setRotation] = useState<number>(0);
   const [theme, setTheme] = useState<ReadingTheme>(() => userPreferences.getPreferredTheme());
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRendering, setIsRendering] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [pageInput, setPageInput] = useState<string>('1');
 
@@ -75,7 +74,15 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   const [isThumbnailsOpen, setIsThumbnailsOpen] = useState<boolean>(false);
   const [excerptNotice, setExcerptNotice] = useState<string | null>(null);
 
-  const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
+  const scrollToPage = useCallback((pageNum: number, smooth = true) => {
+    const el = document.getElementById(`pdf-page-${pageNum}`);
+    if (el) {
+      el.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'start',
+      });
+    }
+  }, []);
 
   // Sync external page jumps (e.g. from study notes citations)
   useEffect(() => {
@@ -88,8 +95,9 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     ) {
       setCurrentPage(externalPage);
       setPageInput(String(externalPage));
+      scrollToPage(externalPage);
     }
-  }, [externalPage, numPages, currentPage]);
+  }, [externalPage, numPages, currentPage, scrollToPage]);
 
   const handleQuotePage = () => {
     if (!noteId) return;
@@ -138,12 +146,18 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
         if (!isCancelled) {
           setPdfDoc(doc);
           setNumPages(doc.numPages);
-          
+
           // Clamp saved page to doc bounds
           const safePage = Math.min(doc.numPages, Math.max(1, savedPage));
           setCurrentPage(safePage);
           setPageInput(String(safePage));
           setIsLoading(false);
+
+          if (safePage > 1) {
+            setTimeout(() => {
+              scrollToPage(safePage, false);
+            }, 250);
+          }
         }
       } catch (err: unknown) {
         if (!isCancelled) {
@@ -163,7 +177,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
         loadingTask.destroy();
       }
     };
-  }, [blobUrl, arrayBuffer, noteId]);
+  }, [blobUrl, arrayBuffer, noteId, scrollToPage]);
 
   // Save last read page progress
   useEffect(() => {
@@ -172,75 +186,13 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     }
   }, [noteId, currentPage]);
 
-  // Render Page onto Canvas
-  const renderPage = useCallback(
-    async (pageNum: number, currentScale: number, currentRotation: number) => {
-      if (!pdfDoc || !canvasRef.current) return;
-
-      try {
-        if (renderTaskRef.current) {
-          renderTaskRef.current.cancel();
-          renderTaskRef.current = null;
-        }
-
-        setIsRendering(true);
-        const page = await pdfDoc.getPage(pageNum);
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        const viewport = page.getViewport({ scale: currentScale, rotation: currentRotation });
-        const pixelRatio = window.devicePixelRatio || 1;
-
-        // Set display dimensions
-        canvas.style.width = `${viewport.width}px`;
-        canvas.style.height = `${viewport.height}px`;
-
-        // Set backing buffer dimensions for Retina / High DPI
-        canvas.width = Math.floor(viewport.width * pixelRatio);
-        canvas.height = Math.floor(viewport.height * pixelRatio);
-
-        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-
-        const renderContext = {
-          canvasContext: ctx,
-          viewport: viewport,
-        };
-
-        const renderTask = page.render(renderContext);
-        renderTaskRef.current = renderTask;
-
-        await renderTask.promise;
-        renderTaskRef.current = null;
-        setIsRendering(false);
-      } catch (err: unknown) {
-        if (err && typeof err === 'object' && 'name' in err && err.name === 'RenderingCancelledException') {
-          // Expected when rapidly switching pages/zoom
-          return;
-        }
-        console.error('Error rendering PDF page:', err);
-        setIsRendering(false);
-      }
-    },
-    [pdfDoc]
-  );
-
-  // Auto-render when page, scale, rotation or pdfDoc updates
-  useEffect(() => {
-    if (pdfDoc && currentPage >= 1 && currentPage <= numPages) {
-      renderPage(currentPage, scale, rotation);
-    }
-  }, [pdfDoc, currentPage, scale, rotation, numPages, renderPage]);
-
   // Auto-fit to width on initial load
   useEffect(() => {
     if (containerRef.current && pdfDoc && numPages > 0) {
       pdfDoc.getPage(1).then((firstPage) => {
         const viewport = firstPage.getViewport({ scale: 1 });
         const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
-        const availableWidth = Math.max(300, containerWidth - 48);
+        const availableWidth = Math.max(300, containerWidth - 64);
         const autoScale = Math.min(2.0, Math.max(0.6, availableWidth / viewport.width));
         setScale(Number(autoScale.toFixed(2)));
       });
@@ -252,6 +204,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
       const prev = currentPage - 1;
       setCurrentPage(prev);
       setPageInput(String(prev));
+      scrollToPage(prev);
     }
   };
 
@@ -260,6 +213,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
       const next = currentPage + 1;
       setCurrentPage(next);
       setPageInput(String(next));
+      scrollToPage(next);
     }
   };
 
@@ -272,6 +226,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     const page = parseInt(pageInput, 10);
     if (!isNaN(page) && page >= 1 && page <= numPages) {
       setCurrentPage(page);
+      scrollToPage(page);
     } else {
       setPageInput(String(currentPage));
     }
@@ -288,10 +243,10 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   const handleFitWidth = async () => {
     if (!containerRef.current || !pdfDoc) return;
     try {
-      const page = await pdfDoc.getPage(currentPage);
+      const page = await pdfDoc.getPage(currentPage || 1);
       const viewport = page.getViewport({ scale: 1, rotation });
       const containerWidth = containerRef.current.clientWidth;
-      const fitScale = Math.max(0.4, Math.min(2.5, (containerWidth - 32) / viewport.width));
+      const fitScale = Math.max(0.4, Math.min(2.5, (containerWidth - 64) / viewport.width));
       setScale(Number(fitScale.toFixed(2)));
     } catch {
       // Ignore
@@ -340,6 +295,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
         setCurrentMatchIndex(0);
         setCurrentPage(matches[0].pageNum);
         setPageInput(String(matches[0].pageNum));
+        scrollToPage(matches[0].pageNum);
       } else {
         setCurrentMatchIndex(-1);
         setSearchError('No matches found in document.');
@@ -358,7 +314,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     setCurrentMatchIndex(nextIdx);
     const targetPage = searchMatches[nextIdx].pageNum;
     setCurrentPage(targetPage);
-    setPageInput(String(targetPage));
+    scrollToPage(targetPage);
   };
 
   const handlePrevMatch = () => {
@@ -367,44 +323,44 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     setCurrentMatchIndex(prevIdx);
     const targetPage = searchMatches[prevIdx].pageNum;
     setCurrentPage(targetPage);
-    setPageInput(String(targetPage));
+    scrollToPage(targetPage);
   };
 
-  // Keyboard shortcut Ctrl+F / Cmd+F
+  // Global hotkey Ctrl+F / Cmd+F to open search
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         setIsSearchOpen(true);
       }
-      if (e.key === 'Escape' && isSearchOpen) {
-        setIsSearchOpen(false);
-      }
-    }
-
+    };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSearchOpen]);
+  }, []);
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white text-slate-500">
-        <Loader2 className="w-8 h-8 animate-spin text-accent-sage mb-2" />
-        <p className="text-xs font-medium">Rendering PDF pages...</p>
+      <div className="flex flex-col items-center justify-center h-full w-full bg-white gap-3 p-6">
+        <Loader2 className="w-8 h-8 animate-spin text-accent-sage" />
+        <p className="text-xs font-semibold text-slate-600 tracking-wide">
+          Rendering PDF Document...
+        </p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white text-center">
-        <AlertCircle className="w-10 h-10 text-rose-500 mb-2" />
-        <p className="font-semibold text-slate-800 text-sm">Could not render inside Canvas Viewer</p>
-        <p className="text-xs text-slate-500 mt-1 max-w-xs mb-4">{error}</p>
+      <div className="flex flex-col items-center justify-center h-full w-full p-6 text-center bg-white">
+        <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 mb-3">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h4 className="text-sm sm:text-base font-semibold text-slate-800">Preview Engine Notice</h4>
+        <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4">{error}</p>
         <div className="flex items-center gap-2">
           {onFallback && (
             <Button variant="primary" size="sm" onClick={onFallback}>
-              Switch to Standard Viewer
+              Switch to Standard View
             </Button>
           )}
           <Button
@@ -448,6 +404,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
             disabled={currentPage <= 1}
             className="h-8 w-8 p-0"
             aria-label="Previous Page"
+            title="Jump to Previous Page"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -471,6 +428,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
             disabled={currentPage >= numPages}
             className="h-8 w-8 p-0"
             aria-label="Next Page"
+            title="Jump to Next Page"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
@@ -687,6 +645,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
             onSelectPage={(p) => {
               setCurrentPage(p);
               setPageInput(String(p));
+              scrollToPage(p);
             }}
             isOpen={isThumbnailsOpen}
             onClose={() => setIsThumbnailsOpen(false)}
@@ -701,25 +660,27 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
           </div>
         )}
 
-        {/* Canvas Scroll Area */}
+        {/* Continuous Vertical Scroll Area */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-auto p-4 flex items-start justify-center relative touch-pan-x touch-pan-y"
+          className="flex-1 overflow-y-auto p-4 flex flex-col items-center relative touch-pan-y"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {isRendering && (
-            <div className="absolute top-6 right-6 bg-white/90 backdrop-blur shadow-md px-3 py-1.5 rounded-full flex items-center gap-2 z-10 border border-slate-200">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-accent-sage" />
-              <span className="text-[11px] font-medium text-slate-600">Rendering...</span>
-            </div>
-          )}
-
-          <div
-            className="shadow-lg rounded bg-white transition-all duration-150 ease-out"
-            style={{ filter: themeCanvasFilter }}
-          >
-            <canvas ref={canvasRef} className="block rounded max-w-none" />
-          </div>
+          {pdfDoc &&
+            Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
+              <PDFPageCanvas
+                key={pageNum}
+                pdfDoc={pdfDoc}
+                pageNum={pageNum}
+                scale={scale}
+                rotation={rotation}
+                themeFilter={themeCanvasFilter}
+                onPageIntersect={(p) => {
+                  setCurrentPage(p);
+                  setPageInput(String(p));
+                }}
+              />
+            ))}
         </div>
       </div>
     </div>
