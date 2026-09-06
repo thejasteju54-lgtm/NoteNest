@@ -16,88 +16,99 @@ export const StudyStatsWidget: React.FC = () => {
   const totalNotesCount = subjects.reduce((acc, s) => acc + s.noteCount, 0);
 
   return (
-    <div className="mb-6 p-4 rounded-2xl bg-linear-to-r from-slate-900 via-slate-850 to-slate-900 text-white shadow-md border border-slate-800">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-accent-sage/20 border border-accent-sage/30 flex items-center justify-center text-accent-sage">
-            <Sparkles className="w-4 h-4" />
+    <div className="relative overflow-hidden rounded-2xl bg-white/85 backdrop-blur-md border border-slate-200/90 p-5 sm:p-6 shadow-card hover:shadow-card-hover transition-all duration-300 mb-6 sm:mb-8">
+      {/* Harmonious ambient glassmorphic background gradient matching NoteNest canvas */}
+      <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-accent-sage/15 via-accent-blue/10 to-transparent rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-amber-500/10 via-accent-terracotta/5 to-transparent rounded-full blur-2xl pointer-events-none -ml-16 -mb-16" />
+
+      {/* Header */}
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-accent-sage/15 border border-accent-sage/30 flex items-center justify-center text-accent-sage shrink-0 shadow-subtle">
+            <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-xs sm:text-sm font-bold tracking-tight text-white">
+            <h3 className="text-sm sm:text-base font-bold tracking-tight text-slate-900">
               Academic Study Hub
-            </h4>
-            <p className="text-[11px] text-slate-400">
+            </h3>
+            <p className="text-xs text-slate-500">
               Active learning streaks & revision health
             </p>
           </div>
         </div>
 
-        {/* Quick Spotlight Shortcut */}
+        {/* Spotlight Command Palette Trigger */}
         <button
           onClick={() => window.dispatchEvent(new CustomEvent('notenest:open-command-palette'))}
-          className="self-start sm:self-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700 text-[11px] text-slate-300 transition-colors"
-          title="Press Ctrl+K or Cmd+K anytime"
+          className="self-start sm:self-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 hover:bg-white border border-slate-200/90 hover:border-slate-300 text-xs text-slate-700 font-medium transition-all shadow-subtle hover:shadow-card group cursor-pointer"
+          title="Open Spotlight Command Palette (Ctrl+K)"
         >
-          <span>Spotlight Actions</span>
-          <kbd className="font-mono text-[10px] bg-slate-900 px-1 py-0.5 rounded text-slate-400 border border-slate-700">
-            Ctrl+K
+          <span className="text-slate-600 group-hover:text-slate-900">Spotlight Actions</span>
+          <kbd className="font-mono text-[10px] bg-slate-100 group-hover:bg-slate-50 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">
+            ⌘K
           </kbd>
         </button>
       </div>
 
-      {/* 3 Metric Pillars */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-4 pt-3.5">
-        {/* Metric 1: Streak */}
-        <div className="bg-slate-800/60 rounded-xl p-2.5 sm:p-3 border border-slate-700/50 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400 text-[11px]">
-            <span className="font-medium">Study Streak</span>
-            <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500/30" />
+      {/* 3 Frosted Metric Pillars */}
+      <div className="relative z-10 grid grid-cols-3 gap-2.5 sm:gap-4 pt-4">
+        {/* Metric 1: Study Streak */}
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-b from-amber-500/10 via-amber-50/40 to-white/90 border border-amber-500/20 p-3 sm:p-4 shadow-subtle flex flex-col justify-between hover:border-amber-500/40 hover:shadow-card transition-all">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+            <span>Study Streak</span>
+            <div className="w-6 h-6 rounded-lg bg-amber-100/90 flex items-center justify-center text-amber-600">
+              <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
+            </div>
           </div>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base sm:text-xl font-black text-amber-400">
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-xl sm:text-2xl font-black text-amber-600 tracking-tight">
               {stats.streakDays}
             </span>
-            <span className="text-[10px] sm:text-xs text-slate-400">
+            <span className="text-xs font-medium text-slate-500">
               {stats.streakDays === 1 ? 'day' : 'days'}
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 mt-0.5 hidden xs:block">
-            {stats.streakDays > 1 ? 'Keep momentum!' : 'Active today'}
-          </span>
+          <p className="text-[11px] text-slate-500 mt-1 hidden xs:block">
+            {stats.streakDays > 1 ? 'Keep the momentum!' : 'Active today'}
+          </p>
         </div>
 
-        {/* Metric 2: Material & Pages */}
-        <div className="bg-slate-800/60 rounded-xl p-2.5 sm:p-3 border border-slate-700/50 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400 text-[11px]">
-            <span className="font-medium">Reading Activity</span>
-            <BookOpen className="w-3.5 h-3.5 text-accent-sage" />
+        {/* Metric 2: Reading Activity */}
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-b from-accent-sage/15 via-emerald-50/40 to-white/90 border border-accent-sage/25 p-3 sm:p-4 shadow-subtle flex flex-col justify-between hover:border-accent-sage/50 hover:shadow-card transition-all">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+            <span>Reading Activity</span>
+            <div className="w-6 h-6 rounded-lg bg-accent-sage/20 flex items-center justify-center text-accent-sage">
+              <BookOpen className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base sm:text-xl font-black text-white">
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               {stats.totalPagesRead}
             </span>
-            <span className="text-[10px] sm:text-xs text-slate-400">pages</span>
+            <span className="text-xs font-medium text-slate-500">pages</span>
           </div>
-          <span className="text-[10px] text-slate-400 mt-0.5 hidden xs:block">
-            across {totalNotesCount} notes
-          </span>
+          <p className="text-[11px] text-slate-500 mt-1 hidden xs:block truncate">
+            across {totalNotesCount} {totalNotesCount === 1 ? 'note' : 'notes'}
+          </p>
         </div>
 
-        {/* Metric 3: Flashcards Mastered */}
-        <div className="bg-slate-800/60 rounded-xl p-2.5 sm:p-3 border border-slate-700/50 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-slate-400 text-[11px]">
-            <span className="font-medium">Active Recall</span>
-            <Layers className="w-3.5 h-3.5 text-indigo-400" />
+        {/* Metric 3: Active Recall Flashcards */}
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-b from-accent-blue/15 via-indigo-50/40 to-white/90 border border-accent-blue/25 p-3 sm:p-4 shadow-subtle flex flex-col justify-between hover:border-accent-blue/50 hover:shadow-card transition-all">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+            <span>Active Recall</span>
+            <div className="w-6 h-6 rounded-lg bg-accent-blue/20 flex items-center justify-center text-accent-blue">
+              <Layers className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-base sm:text-xl font-black text-indigo-400">
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-xl sm:text-2xl font-black text-indigo-700 tracking-tight">
               {stats.cardsMastered}
             </span>
-            <span className="text-[10px] sm:text-xs text-slate-400">mastered</span>
+            <span className="text-xs font-medium text-slate-500">mastered</span>
           </div>
-          <span className="text-[10px] text-slate-400 mt-0.5 hidden xs:block">
+          <p className="text-[11px] text-slate-500 mt-1 hidden xs:block">
             Flashcards learned
-          </span>
+          </p>
         </div>
       </div>
     </div>
