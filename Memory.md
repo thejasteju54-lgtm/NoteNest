@@ -24,6 +24,7 @@ This file records key architecture decisions, state transitions, context, and pe
 | 2026-09-06 | Backend Hardening & Supercharged Study Suite | Added exponential backoff retry policy (`withRetry`), self-healing `ErrorBoundary`, offline connectivity indicator (`NetworkStatusBar`), in-document PDF search, reading themes (Dark/Sepia), side-by-side study scratchpad, and starred/priority notes. | **Accepted** |
 | 2026-09-06 | Top Academic App Synthesis (RemNote, MarginNote, Obsidian, Notion, Zotero) | Integrated 3D Active Recall Flashcards Studio with auto-extraction, Global Spotlight Command Palette (`Ctrl+K`), PDF Page Thumbnail Strip Drawer, Distraction-Free Zen Mode, Built-in Pomodoro Focus Timer with Web Audio synthesizer chime, and Academic Study Streaks Widget. | **Accepted** |
 | 2026-09-06 | Continuous Vertical PDF Scroll Mode | Implemented frictionless continuous vertical scrolling across all document pages using `PDFPageCanvas` with `IntersectionObserver` lazy rendering. Users can now scroll continuously from page 1 to the end without repeatedly clicking page-turn buttons, while the page counter auto-updates dynamically. | **Accepted** |
+| 2026-09-06 | Full-Size PDF Viewer, Streamlined 46px Toolbar & Isolated Scroll | Replaced 3 stacked headers that occupied 1/4th of screen with a single 46px master toolbar. Added 100vw × 100vh Full-Size viewing mode (`F` shortcut / button) with auto-fit width and eliminated double modal scrollbars using `overscroll-contain` so mouse/touch scrolling isolates exclusively to document pages. | **Accepted** |
 
 ---
 
