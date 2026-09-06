@@ -22,15 +22,16 @@ This file records key architecture decisions, state transitions, context, and pe
 | 2026-09-06 | Cloud Storage Routing & Hybrid Caching Fix | Removed mock R2 credentials that hijacked PDF uploads, defaulted to verified Supabase Storage (`notenest-files`), added IndexedDB local caching fallback, and added in-modal PDF re-upload recovery. | **Accepted** |
 | 2026-09-06 | In-App PDF Rendering with PDF.js Canvas | Replaced native `<iframe>` PDF rendering with `PDFCanvasViewer` using `pdfjs-dist` to enable crisp, responsive, high-DPI in-app PDF viewing across Android Chrome, iOS Safari, PWA, and desktop browsers without plugin dependency. | **Accepted** |
 | 2026-09-06 | Backend Hardening & Supercharged Study Suite | Added exponential backoff retry policy (`withRetry`), self-healing `ErrorBoundary`, offline connectivity indicator (`NetworkStatusBar`), in-document PDF search, reading themes (Dark/Sepia), side-by-side study scratchpad, and starred/priority notes. | **Accepted** |
+| 2026-09-06 | Top Academic App Synthesis (RemNote, MarginNote, Obsidian, Notion, Zotero) | Integrated 3D Active Recall Flashcards Studio with auto-extraction, Global Spotlight Command Palette (`Ctrl+K`), PDF Page Thumbnail Strip Drawer, Distraction-Free Zen Mode, Built-in Pomodoro Focus Timer with Web Audio synthesizer chime, and Academic Study Streaks Widget. | **Accepted** |
 
 ---
 
 ## 🧪 Verification & Audit Results
 
 ### ⚙️ Automated Verification
-- **43 / 43 Vitest tests passed** across 7 test suites (`tests/fileValidation.test.ts`, `tests/authValidation.test.ts`, `tests/academicFeatures.test.ts`, `tests/liveSupabase.test.ts`, `tests/r2Storage.test.ts`, `tests/supabase.test.ts`, `tests/services.test.ts`).
+- **50 / 50 Vitest tests passed** across 8 test suites (`tests/topAppFeatures.test.ts`, `tests/academicFeatures.test.ts`, `tests/fileValidation.test.ts`, `tests/authValidation.test.ts`, `tests/liveSupabase.test.ts`, `tests/r2Storage.test.ts`, `tests/supabase.test.ts`, `tests/services.test.ts`).
 - **TypeScript strict compilation**: `tsc --noEmit` passed with 0 errors.
-- **Production Build**: `vite build` generated production bundle in `dist/` cleanly in 4.35s.
+- **Production Build**: `vite build` generated production bundle in `dist/` cleanly in 4.75s.
 - **Production Deployments**: Both Vercel targets (`note-nest-5gef` and `note-nest`) deployed with `state: "success"`. Live at https://note-nest-5gef.vercel.app/.
 
 ### 🖥️ Manual / Browser Verification
@@ -38,5 +39,10 @@ This file records key architecture decisions, state transitions, context, and pe
 - Migration banner (safe opt-in import).
 - Subject and note CRUD operations.
 - PDF upload, in-app Canvas preview, full-text search, reading themes, study scratchpad drawer, and download.
+- 3D Flashcards Studio with auto-extraction and mastery scoring.
+- Global Spotlight Command Palette (`Ctrl+K`).
+- Page Thumbnails Strip and Zen Mode in PDF viewer.
+- Pomodoro 25m Focus / 5m Break timer with Web Audio chime.
+- Academic Study Streaks & Analytics on dashboard.
 - Local storage fallback when env variables are not present.
 

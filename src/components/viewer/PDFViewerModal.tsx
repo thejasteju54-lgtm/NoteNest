@@ -18,12 +18,19 @@ import {
   Trash2,
   Star,
   BookOpen,
+  Clock,
+  Play,
+  Pause,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { formatFileSize, formatUploadDate } from '@/utils/formatters';
 import { PDFCanvasViewer } from './PDFCanvasViewer';
 import { PDFStudyNotesDrawer } from './PDFStudyNotesDrawer';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { userPreferences } from '@/services/userPreferences';
+import { playPomodoroChime } from '@/utils/sound';
 
 export const PDFViewerModal: React.FC = () => {
   const { user } = useAuth();
@@ -45,8 +52,41 @@ export const PDFViewerModal: React.FC = () => {
   const [isReuploading, setIsReuploading] = useState<boolean>(false);
   const [isStarred, setIsStarred] = useState<boolean>(false);
   const [isNotesDrawerOpen, setIsNotesDrawerOpen] = useState<boolean>(false);
+  const [jumpToPage, setJumpToPage] = useState<number | undefined>(undefined);
+  const [isZenMode, setIsZenMode] = useState<boolean>(false);
+
+  // Pomodoro Focus Timer State
+  const [pomodoroSeconds, setPomodoroSeconds] = useState<number>(25 * 60);
+  const [isPomodoroActive, setIsPomodoroActive] = useState<boolean>(false);
+  const [isPomodoroBreak, setIsPomodoroBreak] = useState<boolean>(false);
 
   const reuploadInputRef = useRef<HTMLInputElement>(null);
+
+  // Pomodoro timer tick
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (isPomodoroActive) {
+      timer = setInterval(() => {
+        setPomodoroSeconds((prev) => {
+          if (prev <= 1) {
+            playPomodoroChime();
+            setIsPomodoroBreak((b) => !b);
+            return !isPomodoroBreak ? 5 * 60 : 25 * 60;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isPomodoroActive, isPomodoroBreak]);
+
+  const formatPomodoro = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     if (!previewNoteId || !user) {
@@ -215,7 +255,61 @@ export const PDFViewerModal: React.FC = () => {
             </div>
 
             {/* Action toolbar */}
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto pt-1 sm:pt-0">
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto pt-1 sm:pt-0 flex-wrap">
+              {/* Pomodoro Focus Pill */}
+              <div
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border transition-all ${
+                  isPomodoroActive
+                    ? isPomodoroBreak
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                      : 'bg-rose-50 border-rose-200 text-rose-700'
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                }`}
+                title={isPomodoroBreak ? 'Break Timer (5 min)' : 'Pomodoro Study Focus (25 min)'}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span className="font-semibold">{formatPomodoro(pomodoroSeconds)}</span>
+                <button
+                  onClick={() => setIsPomodoroActive((a) => !a)}
+                  className="p-0.5 rounded hover:bg-black/5"
+                  title={isPomodoroActive ? 'Pause Timer' : 'Start Focus Timer'}
+                >
+                  {isPomodoroActive ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsPomodoroActive(false);
+                    setIsPomodoroBreak(false);
+                    setPomodoroSeconds(25 * 60);
+                  }}
+                  className="p-0.5 rounded hover:bg-black/5 text-slate-400 hover:text-slate-700"
+                  title="Reset 25m Focus Timer"
+                >
+                  <RotateCcw className="w-2.5 h-2.5" />
+                </button>
+              </div>
+
+              {/* Zen Mode Button */}
+              <Button
+                variant={isZenMode ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setIsZenMode((z) => !z)}
+                className="h-8 px-2 text-xs"
+                title={isZenMode ? 'Exit Zen Mode' : 'Zen Focus Mode (Distraction-Free)'}
+              >
+                {isZenMode ? (
+                  <>
+                    <Minimize2 className="w-3.5 h-3.5 mr-1" />
+                    Exit Zen
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-3.5 h-3.5 mr-1" />
+                    Zen
+                  </>
+                )}
+              </Button>
+
               {note && (
                 <Button
                   variant={isNotesDrawerOpen ? 'primary' : 'outline'}
@@ -343,6 +437,7 @@ export const PDFViewerModal: React.FC = () => {
                     noteId={note?.id}
                     title={note?.title}
                     onFallback={() => setViewMode('native')}
+                    externalPage={jumpToPage}
                   />
                 ) : (
                   <iframe
@@ -362,6 +457,7 @@ export const PDFViewerModal: React.FC = () => {
                 noteTitle={note.title}
                 isOpen={isNotesDrawerOpen}
                 onClose={() => setIsNotesDrawerOpen(false)}
+                onJumpToPage={(p) => setJumpToPage(p)}
               />
             )}
           </div>

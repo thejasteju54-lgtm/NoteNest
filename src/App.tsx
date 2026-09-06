@@ -17,6 +17,8 @@ import { Login } from '@/pages/Login';
 import { Signup } from '@/pages/Signup';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { NetworkStatusBar } from '@/components/common/NetworkStatusBar';
+import { CommandPalette } from '@/components/common/CommandPalette';
+import { StudyStatsWidget } from '@/components/dashboard/StudyStatsWidget';
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -102,6 +104,7 @@ export const App: React.FC = () => {
           /* Dashboard View */
           <div className="animate-in fade-in duration-150">
             <GreetingBanner />
+            {subjects.length > 0 && <StudyStatsWidget />}
             {subjects.length === 0 && !isDataLoading ? (
               <EmptyState
                 title="Your study nest is empty"
@@ -131,7 +134,8 @@ export const App: React.FC = () => {
       {/* Mobile Bottom Navigation Bar */}
       <MobileNav />
 
-      {/* Global Modals */}
+      {/* Global Modals & Spotlight Command Palette */}
+      <CommandPalette />
       <UploadModal />
       <SubjectModal />
       <PDFViewerModal />

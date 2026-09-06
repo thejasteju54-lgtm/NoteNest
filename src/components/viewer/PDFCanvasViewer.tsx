@@ -18,9 +18,13 @@ import {
   Coffee,
   ChevronDown,
   ChevronUp,
+  LayoutGrid,
+  Quote,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/common/Button';
 import { userPreferences, ReadingTheme } from '@/services/userPreferences';
+import { PDFThumbnailStrip } from './PDFThumbnailStrip';
 
 // Configure pdfjs worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -31,6 +35,7 @@ interface PDFCanvasViewerProps {
   noteId?: string;
   title?: string;
   onFallback?: () => void;
+  externalPage?: number;
 }
 
 interface SearchMatch {
@@ -42,6 +47,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   arrayBuffer,
   noteId,
   onFallback,
+  externalPage,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -65,7 +71,34 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1);
   const [searchError, setSearchError] = useState<string | null>(null);
 
+  // Thumbnails & Excerpt State
+  const [isThumbnailsOpen, setIsThumbnailsOpen] = useState<boolean>(false);
+  const [excerptNotice, setExcerptNotice] = useState<string | null>(null);
+
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
+
+  // Sync external page jumps (e.g. from study notes citations)
+  useEffect(() => {
+    if (
+      externalPage &&
+      externalPage >= 1 &&
+      numPages > 0 &&
+      externalPage <= numPages &&
+      externalPage !== currentPage
+    ) {
+      setCurrentPage(externalPage);
+      setPageInput(String(externalPage));
+    }
+  }, [externalPage, numPages, currentPage]);
+
+  const handleQuotePage = () => {
+    if (!noteId) return;
+    const citation = `\n> [Page ${currentPage}]: Key concept from page ${currentPage}...\n`;
+    const existing = userPreferences.getStudyNotes(noteId);
+    userPreferences.saveStudyNotes(noteId, existing ? `${existing}\n${citation}` : citation);
+    setExcerptNotice(`Page ${currentPage} citation added to Study Notes!`);
+    setTimeout(() => setExcerptNotice(null), 2500);
+  };
 
   // Load PDF Document & Auto-Resume Last Read Page
   useEffect(() => {
@@ -443,8 +476,34 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
           </Button>
         </div>
 
-        {/* Action Controls (Search, Zoom, Theme, Rotate, Fallback) */}
+        {/* Action Controls (Search, Thumbnails, Quote, Zoom, Theme, Rotate, Fallback) */}
         <div className="flex items-center gap-1">
+          {/* Thumbnails Drawer Toggle */}
+          <Button
+            variant={isThumbnailsOpen ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setIsThumbnailsOpen((o) => !o)}
+            className="h-8 w-8 p-0"
+            aria-label="Toggle Page Thumbnails"
+            title="Toggle Page Thumbnails (Visual Navigation)"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </Button>
+
+          {/* Quote / Excerpt to Study Notes */}
+          {noteId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleQuotePage}
+              className="h-8 w-8 p-0"
+              aria-label="Quote Page to Study Notes"
+              title="Add Page Citation to Study Notes"
+            >
+              <Quote className="w-3.5 h-3.5 text-slate-600" />
+            </Button>
+          )}
+
           {/* Search Toggle */}
           <Button
             variant={isSearchOpen ? 'primary' : 'outline'}
@@ -618,24 +677,49 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
         </div>
       )}
 
-      {/* Canvas Scroll Area */}
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-auto p-4 flex items-start justify-center relative touch-pan-x touch-pan-y"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        {isRendering && (
-          <div className="absolute top-6 right-6 bg-white/90 backdrop-blur shadow-md px-3 py-1.5 rounded-full flex items-center gap-2 z-10 border border-slate-200">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-accent-sage" />
-            <span className="text-[11px] font-medium text-slate-600">Rendering...</span>
+      {/* Main Canvas & Thumbnails Area */}
+      <div className="flex-1 flex flex-row overflow-hidden relative">
+        {pdfDoc && (
+          <PDFThumbnailStrip
+            pdfDoc={pdfDoc}
+            numPages={numPages}
+            currentPage={currentPage}
+            onSelectPage={(p) => {
+              setCurrentPage(p);
+              setPageInput(String(p));
+            }}
+            isOpen={isThumbnailsOpen}
+            onClose={() => setIsThumbnailsOpen(false)}
+          />
+        )}
+
+        {/* Excerpt Quoted Toast */}
+        {excerptNotice && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white text-xs px-3.5 py-1.5 rounded-full shadow-lg z-30 animate-in fade-in flex items-center gap-1.5 backdrop-blur">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span>{excerptNotice}</span>
           </div>
         )}
 
+        {/* Canvas Scroll Area */}
         <div
-          className="shadow-lg rounded bg-white transition-all duration-150 ease-out"
-          style={{ filter: themeCanvasFilter }}
+          ref={containerRef}
+          className="flex-1 overflow-auto p-4 flex items-start justify-center relative touch-pan-x touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          <canvas ref={canvasRef} className="block rounded max-w-none" />
+          {isRendering && (
+            <div className="absolute top-6 right-6 bg-white/90 backdrop-blur shadow-md px-3 py-1.5 rounded-full flex items-center gap-2 z-10 border border-slate-200">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-accent-sage" />
+              <span className="text-[11px] font-medium text-slate-600">Rendering...</span>
+            </div>
+          )}
+
+          <div
+            className="shadow-lg rounded bg-white transition-all duration-150 ease-out"
+            style={{ filter: themeCanvasFilter }}
+          >
+            <canvas ref={canvasRef} className="block rounded max-w-none" />
+          </div>
         </div>
       </div>
     </div>

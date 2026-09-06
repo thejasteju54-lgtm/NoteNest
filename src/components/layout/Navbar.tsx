@@ -73,18 +73,29 @@ export const Navbar: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search your subjects or note titles..."
-              className="w-full bg-white text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm rounded-xl border border-slate-200/90 pl-10 pr-9 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-sage focus-visible:border-accent-sage transition-all shadow-subtle"
+              className="w-full bg-white text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm rounded-xl border border-slate-200/90 pl-10 pr-18 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-sage focus-visible:border-accent-sage transition-all shadow-subtle"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={clearSearch}
-                aria-label="Clear search"
-                className="absolute right-3 p-0.5 text-slate-400 hover:text-slate-700 rounded-md transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+            <div className="absolute right-2.5 flex items-center gap-1">
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  aria-label="Clear search"
+                  className="p-0.5 text-slate-400 hover:text-slate-700 rounded-md transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('notenest:open-command-palette'))}
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
+                  title="Open Spotlight Command Palette (Ctrl+K)"
+                >
+                  <span>⌘K</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
