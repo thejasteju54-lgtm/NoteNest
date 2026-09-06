@@ -10,6 +10,7 @@ import {
   Loader2,
   AlertCircle,
   Maximize2,
+  Minimize2,
   ExternalLink,
   Search,
   X,
@@ -21,8 +22,19 @@ import {
   LayoutGrid,
   Quote,
   Sparkles,
+  BookOpen,
+  Download,
+  Printer,
+  Star,
+  Clock,
+  Play,
+  Pause,
+  RotateCcw,
+  MoreVertical,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/common/Button';
+import { Badge } from '@/components/common/Badge';
 import { userPreferences, ReadingTheme } from '@/services/userPreferences';
 import { PDFThumbnailStrip } from './PDFThumbnailStrip';
 import { PDFPageCanvas } from './PDFPageCanvas';
@@ -30,11 +42,31 @@ import { PDFPageCanvas } from './PDFPageCanvas';
 // Configure pdfjs worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-interface PDFCanvasViewerProps {
+export interface PDFCanvasViewerProps {
   blobUrl: string;
   arrayBuffer?: ArrayBuffer | null;
   noteId?: string;
   title?: string;
+  subjectName?: string;
+  subjectColorId?: string;
+  isStarred?: boolean;
+  onToggleStar?: () => void;
+  isFullScreen?: boolean;
+  onToggleFullScreen?: () => void;
+  isZenMode?: boolean;
+  onToggleZenMode?: () => void;
+  isNotesDrawerOpen?: boolean;
+  onToggleNotesDrawer?: () => void;
+  onClose?: () => void;
+  onDownload?: () => void;
+  onPrint?: () => void;
+  onOpenInTab?: () => void;
+  // Pomodoro
+  pomodoroSeconds?: number;
+  isPomodoroActive?: boolean;
+  isPomodoroBreak?: boolean;
+  onTogglePomodoro?: () => void;
+  onResetPomodoro?: () => void;
   onFallback?: () => void;
   externalPage?: number;
 }
@@ -47,10 +79,31 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   blobUrl,
   arrayBuffer,
   noteId,
+  title,
+  subjectName,
+  subjectColorId,
+  isStarred,
+  onToggleStar,
+  isFullScreen = false,
+  onToggleFullScreen,
+  isZenMode = false,
+  onToggleZenMode,
+  isNotesDrawerOpen = false,
+  onToggleNotesDrawer,
+  onClose,
+  onDownload,
+  onPrint,
+  onOpenInTab,
+  pomodoroSeconds = 25 * 60,
+  isPomodoroActive = false,
+  isPomodoroBreak = false,
+  onTogglePomodoro,
+  onResetPomodoro,
   onFallback,
   externalPage,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -61,6 +114,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [pageInput, setPageInput] = useState<string>('1');
+  const [isMoreOpen, setIsMoreOpen] = useState<boolean>(false);
 
   // Search State
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
@@ -73,6 +127,19 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   // Thumbnails & Excerpt State
   const [isThumbnailsOpen, setIsThumbnailsOpen] = useState<boolean>(false);
   const [excerptNotice, setExcerptNotice] = useState<string | null>(null);
+
+  // Close more menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setIsMoreOpen(false);
+      }
+    };
+    if (isMoreOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMoreOpen]);
 
   const scrollToPage = useCallback((pageNum: number, smooth = true) => {
     const el = document.getElementById(`pdf-page-${pageNum}`);
@@ -127,7 +194,6 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
         if (arrayBuffer && arrayBuffer.byteLength > 0) {
           bytes = new Uint8Array(arrayBuffer);
         } else {
-          // Fetch on the main window thread where blob URLs are accessible
           const res = await fetch(blobUrl);
           if (!res.ok) {
             throw new Error(`Failed to read PDF blob: HTTP ${res.status}`);
@@ -147,7 +213,6 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
           setPdfDoc(doc);
           setNumPages(doc.numPages);
 
-          // Clamp saved page to doc bounds
           const safePage = Math.min(doc.numPages, Math.max(1, savedPage));
           setCurrentPage(safePage);
           setPageInput(String(safePage));
@@ -186,18 +251,38 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     }
   }, [noteId, currentPage]);
 
-  // Auto-fit to width on initial load
+  // Dynamic Fit to Width Calculator
+  const handleFitWidth = useCallback(() => {
+    if (!containerRef.current || !pdfDoc) return;
+    pdfDoc.getPage(currentPage || 1).then((page) => {
+      const viewport = page.getViewport({ scale: 1, rotation });
+      const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+      // Allow comfortable padding (36px total)
+      const availableWidth = Math.max(300, containerWidth - 36);
+      const fitScale = Math.max(0.5, Math.min(2.8, availableWidth / viewport.width));
+      setScale(Number(fitScale.toFixed(2)));
+    });
+  }, [pdfDoc, currentPage, rotation]);
+
+  // Auto-fit on initial load
   useEffect(() => {
-    if (containerRef.current && pdfDoc && numPages > 0) {
-      pdfDoc.getPage(1).then((firstPage) => {
-        const viewport = firstPage.getViewport({ scale: 1 });
-        const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
-        const availableWidth = Math.max(300, containerWidth - 64);
-        const autoScale = Math.min(2.0, Math.max(0.6, availableWidth / viewport.width));
-        setScale(Number(autoScale.toFixed(2)));
-      });
+    if (pdfDoc && numPages > 0) {
+      const timer = setTimeout(() => {
+        handleFitWidth();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [pdfDoc, numPages]);
+  }, [pdfDoc, numPages, handleFitWidth]);
+
+  // Auto re-fit when fullscreen toggled
+  useEffect(() => {
+    if (pdfDoc) {
+      const timer = setTimeout(() => {
+        handleFitWidth();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isFullScreen, handleFitWidth, pdfDoc]);
 
   const handlePrevPage = () => {
     if (currentPage > 1) {
@@ -233,24 +318,11 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   };
 
   const handleZoomIn = () => {
-    setScale((prev) => Math.min(3.0, Number((prev + 0.2).toFixed(2))));
+    setScale((prev) => Math.min(3.2, Number((prev + 0.15).toFixed(2))));
   };
 
   const handleZoomOut = () => {
-    setScale((prev) => Math.max(0.4, Number((prev - 0.2).toFixed(2))));
-  };
-
-  const handleFitWidth = async () => {
-    if (!containerRef.current || !pdfDoc) return;
-    try {
-      const page = await pdfDoc.getPage(currentPage || 1);
-      const viewport = page.getViewport({ scale: 1, rotation });
-      const containerWidth = containerRef.current.clientWidth;
-      const fitScale = Math.max(0.4, Math.min(2.5, (containerWidth - 64) / viewport.width));
-      setScale(Number(fitScale.toFixed(2)));
-    } catch {
-      // Ignore
-    }
+    setScale((prev) => Math.max(0.4, Number((prev - 0.15).toFixed(2))));
   };
 
   const handleRotate = () => {
@@ -326,17 +398,45 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     scrollToPage(targetPage);
   };
 
-  // Global hotkey Ctrl+F / Cmd+F to open search
+  // Keyboard Shortcuts (F for Fullscreen, Z for Zen, etc.)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea') return;
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        setIsSearchOpen(true);
+        setIsSearchOpen((s) => !s);
+      } else if (e.key === 'f' || e.key === 'F') {
+        if (!e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          onToggleFullScreen?.();
+        }
+      } else if (e.key === 'z' || e.key === 'Z') {
+        if (!e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          onToggleZenMode?.();
+        }
+      } else if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        handleZoomIn();
+      } else if (e.key === '-') {
+        e.preventDefault();
+        handleZoomOut();
+      } else if (e.key === '0') {
+        e.preventDefault();
+        handleFitWidth();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [onToggleFullScreen, onToggleZenMode, handleFitWidth]);
+
+  const formatPomodoro = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   if (isLoading) {
     return (
@@ -379,9 +479,9 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   // Theme container styling
   const themeContainerBg =
     theme === 'dark'
-      ? 'bg-slate-900'
+      ? 'bg-slate-950'
       : theme === 'sepia'
-      ? 'bg-[#FBF0D9]'
+      ? 'bg-[#F4E8CE]'
       : 'bg-slate-100';
 
   const themeCanvasFilter =
@@ -392,228 +492,473 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
       : 'none';
 
   return (
-    <div className={`flex flex-col h-full rounded-xl overflow-hidden select-none ${themeContainerBg} transition-colors duration-200`}>
-      {/* Sticky Top Viewer Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-white/95 backdrop-blur border-b border-slate-200/80 gap-2 shrink-0 flex-wrap">
-        {/* Pagination Controls */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrevPage}
-            disabled={currentPage <= 1}
-            className="h-8 w-8 p-0"
-            aria-label="Previous Page"
-            title="Jump to Previous Page"
+    <div className={`flex flex-col h-full w-full overflow-hidden select-none ${themeContainerBg} transition-colors duration-200 relative`}>
+      {/* 1. Sleek Floating Zen Mode Badge (Only visible when Zen Mode is Active) */}
+      {isZenMode && (
+        <div className="fixed top-3 right-4 z-40 bg-slate-900/90 backdrop-blur-md text-white px-3 py-1.5 rounded-full shadow-2xl flex items-center gap-2 text-xs border border-white/15 animate-in fade-in slide-in-from-top-2">
+          <span className="font-mono text-[11px] text-slate-300 font-semibold">
+            {currentPage} / {numPages}
+          </span>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={handlePrevPage}
+              disabled={currentPage <= 1}
+              className="p-1 rounded hover:bg-white/10 disabled:opacity-30"
+              title="Previous Page"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage >= numPages}
+              className="p-1 rounded hover:bg-white/10 disabled:opacity-30"
+              title="Next Page"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="w-px h-3 bg-white/20" />
+          <button
+            onClick={handleFitWidth}
+            className="p-1 rounded hover:bg-white/10 text-slate-300 hover:text-white"
+            title="Fit to Width"
           >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-
-          <form onSubmit={handlePageInputSubmit} className="flex items-center gap-1.5 px-1">
-            <input
-              type="text"
-              value={pageInput}
-              onChange={handlePageInputChange}
-              onBlur={handlePageInputSubmit}
-              className="w-10 h-7 text-center text-xs font-medium border border-slate-200 rounded focus:border-accent-sage focus:outline-none bg-slate-50"
-              aria-label="Current page number"
-            />
-            <span className="text-xs text-slate-500 font-medium">/ {numPages}</span>
-          </form>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNextPage}
-            disabled={currentPage >= numPages}
-            className="h-8 w-8 p-0"
-            aria-label="Next Page"
-            title="Jump to Next Page"
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onToggleFullScreen}
+            className="p-1 rounded hover:bg-white/10 text-accent-sage"
+            title={isFullScreen ? 'Exit Full Size (F)' : 'Enter Full Size (F)'}
           >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+            {isFullScreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={onToggleZenMode}
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded text-[11px] font-semibold text-white ml-0.5 transition-colors"
+            title="Exit Zen Mode (Z)"
+          >
+            Exit Zen
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 rounded hover:bg-white/20 text-slate-400 hover:text-white ml-0.5"
+              title="Close Document (Esc)"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
+      )}
 
-        {/* Action Controls (Search, Thumbnails, Quote, Zoom, Theme, Rotate, Fallback) */}
-        <div className="flex items-center gap-1">
-          {/* Thumbnails Drawer Toggle */}
-          <Button
-            variant={isThumbnailsOpen ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setIsThumbnailsOpen((o) => !o)}
-            className="h-8 w-8 p-0"
-            aria-label="Toggle Page Thumbnails"
-            title="Toggle Page Thumbnails (Visual Navigation)"
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-          </Button>
+      {/* 2. Unified Master Toolbar (Consolidates Document Meta, Page Nav, Zoom, and Actions into a single 46px bar) */}
+      {!isZenMode && (
+        <div className="h-11 sm:h-12 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/90 dark:border-slate-800 px-2 sm:px-3 flex items-center justify-between gap-1.5 sm:gap-2.5 shrink-0 z-20 shadow-xs">
+          {/* Left Cluster: Document identity & Page Navigator */}
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 pr-1">
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
+                title="Close Document (Esc)"
+                aria-label="Close viewer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
 
-          {/* Quote / Excerpt to Study Notes */}
-          {noteId && (
+            <div className="w-6 h-6 rounded-md bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shrink-0 hidden xs:flex">
+              <FileText className="w-3.5 h-3.5" />
+            </div>
+
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h3
+                className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate max-w-[100px] xs:max-w-[140px] sm:max-w-[200px] md:max-w-[260px]"
+                title={title || 'Document'}
+              >
+                {title || 'Document'}
+              </h3>
+
+              {onToggleStar && (
+                <button
+                  onClick={onToggleStar}
+                  className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-amber-500 transition-colors shrink-0"
+                  title={isStarred ? 'Starred note' : 'Mark as starred'}
+                  aria-label="Toggle star"
+                >
+                  <Star
+                    className={`w-3.5 h-3.5 ${
+                      isStarred ? 'fill-amber-400 text-amber-500' : 'text-slate-400'
+                    }`}
+                  />
+                </button>
+              )}
+
+              {subjectName && (
+                <div className="hidden md:inline-block">
+                  <Badge colorId={subjectColorId || 'slate'} label={subjectName} size="sm" />
+                </div>
+              )}
+            </div>
+
+            {/* Compact Vertical Divider */}
+            <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5 hidden xs:block" />
+
+            {/* Page Jump Controls */}
+            <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage <= 1}
+                className="p-1 rounded hover:bg-slate-200/70 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors text-slate-600 dark:text-slate-300"
+                title="Previous Page (Left Arrow)"
+                aria-label="Previous Page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <form onSubmit={handlePageInputSubmit} className="flex items-center gap-1 px-1">
+                <input
+                  type="text"
+                  value={pageInput}
+                  onChange={handlePageInputChange}
+                  onBlur={handlePageInputSubmit}
+                  className="w-8 h-5 text-center text-[11px] font-bold border border-slate-200 dark:border-slate-600 rounded focus:border-accent-sage focus:outline-none bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                  aria-label="Current page number"
+                />
+                <span className="text-[11px] text-slate-400 font-medium">/ {numPages}</span>
+              </form>
+
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage >= numPages}
+                className="p-1 rounded hover:bg-slate-200/70 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors text-slate-600 dark:text-slate-300"
+                title="Next Page (Right Arrow)"
+                aria-label="Next Page"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Center Cluster: Reading & Zoom Tools */}
+          <div className="flex items-center gap-1">
+            {/* Fit to Width Button (Crucial for immediate readable content) */}
             <Button
               variant="outline"
               size="sm"
-              onClick={handleQuotePage}
-              className="h-8 w-8 p-0"
-              aria-label="Quote Page to Study Notes"
-              title="Add Page Citation to Study Notes"
+              onClick={handleFitWidth}
+              className="h-7 px-2 text-xs font-medium border-slate-200 dark:border-slate-700 hidden sm:inline-flex"
+              title="Fit to Width (Shortcut: 0)"
             >
-              <Quote className="w-3.5 h-3.5 text-slate-600" />
+              <Maximize2 className="w-3 h-3 mr-1 text-accent-sage" />
+              Fit Width
             </Button>
-          )}
 
-          {/* Search Toggle */}
-          <Button
-            variant={isSearchOpen ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setIsSearchOpen((o) => !o)}
-            className="h-8 w-8 p-0"
-            aria-label="Find in PDF"
-            title="Find in PDF (Ctrl+F)"
-          >
-            <Search className="w-3.5 h-3.5" />
-          </Button>
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-0.5 bg-slate-50 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+              <button
+                onClick={handleZoomOut}
+                disabled={scale <= 0.4}
+                className="p-1 rounded hover:bg-slate-200/70 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors text-slate-600 dark:text-slate-300"
+                title="Zoom Out (-)"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
 
-          {/* Reading Theme Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCycleTheme}
-            className="h-8 w-8 p-0"
-            aria-label="Toggle Reading Mode"
-            title={`Reading Mode: ${theme.toUpperCase()} (Click to change)`}
-          >
-            {theme === 'dark' ? (
-              <Moon className="w-3.5 h-3.5 text-indigo-500" />
-            ) : theme === 'sepia' ? (
-              <Coffee className="w-3.5 h-3.5 text-amber-600" />
-            ) : (
-              <Sun className="w-3.5 h-3.5 text-amber-500" />
-            )}
-          </Button>
+              <span className="text-[11px] font-mono font-semibold text-slate-700 dark:text-slate-200 w-10 text-center select-none">
+                {Math.round(scale * 100)}%
+              </span>
 
-          {/* Zoom Controls */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleZoomOut}
-            disabled={scale <= 0.4}
-            className="h-8 w-8 p-0"
-            aria-label="Zoom Out"
-            title="Zoom Out"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </Button>
+              <button
+                onClick={handleZoomIn}
+                disabled={scale >= 3.2}
+                className="p-1 rounded hover:bg-slate-200/70 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors text-slate-600 dark:text-slate-300"
+                title="Zoom In (+)"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
-          <span className="text-xs font-medium text-slate-600 w-11 text-center hidden xs:inline-block">
-            {Math.round(scale * 100)}%
-          </span>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleZoomIn}
-            disabled={scale >= 3.0}
-            className="h-8 w-8 p-0"
-            aria-label="Zoom In"
-            title="Zoom In"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleFitWidth}
-            className="h-8 px-2 text-xs hidden sm:inline-flex"
-            aria-label="Fit to Width"
-            title="Fit to Width"
-          >
-            <Maximize2 className="w-3.5 h-3.5 mr-1" />
-            Fit
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRotate}
-            className="h-8 w-8 p-0"
-            aria-label="Rotate Page"
-            title="Rotate Clockwise"
-          >
-            <RotateCw className="w-3.5 h-3.5" />
-          </Button>
-
-          {onFallback && (
+            {/* Reading Theme Toggle */}
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              onClick={onFallback}
-              className="h-8 px-2 text-[11px] text-slate-500 hover:text-slate-800 hidden xs:inline-flex"
-              title="Switch to Browser Built-in PDF Engine"
+              onClick={handleCycleTheme}
+              className="h-7 w-7 p-0 border-slate-200 dark:border-slate-700"
+              title={`Reading Mode: ${theme.toUpperCase()} (Light / Sepia / Dark)`}
             >
-              Native
+              {theme === 'dark' ? (
+                <Moon className="w-3.5 h-3.5 text-indigo-400" />
+              ) : theme === 'sepia' ? (
+                <Coffee className="w-3.5 h-3.5 text-amber-600" />
+              ) : (
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+              )}
             </Button>
-          )}
-        </div>
-      </div>
 
-      {/* Expandable In-Document Search Bar */}
+            {/* Rotate Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRotate}
+              className="h-7 w-7 p-0 hidden md:inline-flex border-slate-200 dark:border-slate-700"
+              title="Rotate 90° Clockwise"
+            >
+              <RotateCw className="w-3.5 h-3.5 text-slate-500" />
+            </Button>
+          </div>
+
+          {/* Right Cluster: Power Features & Full Size Trigger */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            {/* Thumbnails Toggle */}
+            <Button
+              variant={isThumbnailsOpen ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setIsThumbnailsOpen((o) => !o)}
+              className="h-7 w-7 p-0 border-slate-200 dark:border-slate-700"
+              title="Toggle Page Thumbnails"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </Button>
+
+            {/* Search Toggle */}
+            <Button
+              variant={isSearchOpen ? 'primary' : 'outline'}
+              size="sm"
+              onClick={() => setIsSearchOpen((o) => !o)}
+              className="h-7 w-7 p-0 border-slate-200 dark:border-slate-700"
+              title="Search in PDF (Ctrl+F)"
+            >
+              <Search className="w-3.5 h-3.5" />
+            </Button>
+
+            {/* Quote to Notes */}
+            {noteId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleQuotePage}
+                className="h-7 w-7 p-0 hidden lg:inline-flex border-slate-200 dark:border-slate-700"
+                title="Quote page into Study Notes"
+              >
+                <Quote className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+              </Button>
+            )}
+
+            {/* Study Scratchpad Toggle */}
+            {onToggleNotesDrawer && (
+              <Button
+                variant={isNotesDrawerOpen ? 'primary' : 'outline'}
+                size="sm"
+                onClick={onToggleNotesDrawer}
+                className="h-7 px-2 text-xs font-semibold"
+                title="Toggle Study Notes & Flashcards"
+              >
+                <BookOpen className="w-3.5 h-3.5 sm:mr-1" />
+                <span className="hidden md:inline">Notes</span>
+              </Button>
+            )}
+
+            {/* FULL SIZE VIEWER BUTTON (High Prominence) */}
+            {onToggleFullScreen && (
+              <button
+                onClick={onToggleFullScreen}
+                className={`flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-bold transition-all shadow-xs ${
+                  isFullScreen
+                    ? 'bg-slate-800 text-white hover:bg-slate-700 border border-slate-700'
+                    : 'bg-accent-sage text-white hover:bg-accent-sage/90 border border-accent-sage/80'
+                }`}
+                title={isFullScreen ? 'Exit Full Size (F / Esc)' : 'Full Size PDF Viewer (F)'}
+              >
+                {isFullScreen ? (
+                  <>
+                    <Minimize2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Exit Full</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Full Size</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Zen Mode Button */}
+            {onToggleZenMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onToggleZenMode}
+                className="h-7 px-2 text-xs font-semibold hidden sm:inline-flex border-slate-200 dark:border-slate-700"
+                title="Zen Mode: Distraction-free Reading (Z)"
+              >
+                Zen
+              </Button>
+            )}
+
+            {/* More Actions Dropdown Menu (Download, Print, Open Tab, Pomodoro, Native) */}
+            <div className="relative" ref={moreMenuRef}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsMoreOpen((m) => !m)}
+                className="h-7 w-7 p-0 border-slate-200 dark:border-slate-700"
+                title="More Options"
+                aria-label="More options"
+              >
+                <MoreVertical className="w-3.5 h-3.5" />
+              </Button>
+
+              {isMoreOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 p-1.5 z-50 text-xs animate-in fade-in zoom-in-95">
+                  {/* Pomodoro Focus Section inside Dropdown */}
+                  {onTogglePomodoro && (
+                    <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg mb-1 border border-slate-100 dark:border-slate-700/50">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 text-[11px]">
+                          <Clock className="w-3.5 h-3.5 text-accent-sage" />
+                          {isPomodoroBreak ? 'Break' : 'Focus Timer'}
+                        </span>
+                        <span className="font-mono font-bold text-accent-sage">
+                          {formatPomodoro(pomodoroSeconds)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <button
+                          onClick={onTogglePomodoro}
+                          className="flex-1 py-1 px-2 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-semibold text-[11px] flex items-center justify-center gap-1 hover:bg-slate-50"
+                        >
+                          {isPomodoroActive ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                          {isPomodoroActive ? 'Pause' : 'Start (25m)'}
+                        </button>
+                        {onResetPomodoro && (
+                          <button
+                            onClick={onResetPomodoro}
+                            className="p-1 rounded hover:bg-slate-200/60 text-slate-400 hover:text-slate-700"
+                            title="Reset Timer"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {onDownload && (
+                    <button
+                      onClick={() => {
+                        setIsMoreOpen(false);
+                        onDownload();
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left font-medium"
+                    >
+                      <Download className="w-3.5 h-3.5 text-accent-sage" />
+                      Download PDF
+                    </button>
+                  )}
+
+                  {onPrint && (
+                    <button
+                      onClick={() => {
+                        setIsMoreOpen(false);
+                        onPrint();
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left font-medium"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-500" />
+                      Print Document
+                    </button>
+                  )}
+
+                  {onOpenInTab && (
+                    <button
+                      onClick={() => {
+                        setIsMoreOpen(false);
+                        onOpenInTab();
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left font-medium"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                      Open in New Tab
+                    </button>
+                  )}
+
+                  {onFallback && (
+                    <button
+                      onClick={() => {
+                        setIsMoreOpen(false);
+                        onFallback();
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left font-medium border-t border-slate-100 dark:border-slate-800 mt-1 pt-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-slate-400" />
+                      Native Browser View
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. In-Document Full-Text Search Drawer */}
       {isSearchOpen && (
-        <div className="bg-white/95 border-b border-slate-200 px-3 py-2 flex items-center justify-between gap-2 shadow-sm animate-in slide-in-from-top-2 duration-150">
+        <div className="bg-white/95 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 px-3 py-1.5 flex items-center justify-between gap-2 shadow-sm shrink-0 z-20 animate-in slide-in-from-top-1 duration-150">
           <form onSubmit={handlePerformSearch} className="flex items-center gap-2 flex-1 max-w-md">
             <div className="relative flex-1">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Find text in document..."
+                placeholder="Find text in PDF document..."
                 autoFocus
-                className="w-full h-8 pl-8 pr-3 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-accent-sage bg-slate-50"
+                className="w-full h-7 pl-7 pr-2 text-xs border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-accent-sage bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100"
               />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+              <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-2" />
             </div>
 
             <Button
               type="submit"
               variant="primary"
               size="sm"
-              className="h-8 px-3 text-xs"
+              className="h-7 px-2.5 text-xs font-medium"
               isLoading={isSearchingText}
             >
               Search
             </Button>
           </form>
 
-          {/* Matches & Navigation */}
+          {/* Search match stats & jump buttons */}
           <div className="flex items-center gap-2">
             {searchMatches.length > 0 ? (
-              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 px-2 py-0.5 rounded">
                 Match {currentMatchIndex + 1} of {searchMatches.length} (p. {searchMatches[currentMatchIndex]?.pageNum})
               </span>
             ) : searchError ? (
-              <span className="text-xs text-rose-500">{searchError}</span>
+              <span className="text-[11px] text-rose-500 font-medium">{searchError}</span>
             ) : null}
 
             {searchMatches.length > 0 && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handlePrevMatch}
-                  className="h-7 w-7 p-0"
+                  className="h-6 w-6 p-0"
                   title="Previous Match"
                 >
-                  <ChevronUp className="w-3.5 h-3.5" />
+                  <ChevronUp className="w-3 h-3" />
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleNextMatch}
-                  className="h-7 w-7 p-0"
+                  className="h-6 w-6 p-0"
                   title="Next Match"
                 >
-                  <ChevronDown className="w-3.5 h-3.5" />
+                  <ChevronDown className="w-3 h-3" />
                 </Button>
               </div>
             )}
@@ -626,17 +971,18 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
                 setSearchMatches([]);
                 setCurrentMatchIndex(-1);
               }}
-              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+              className="h-6 w-6 p-0 text-slate-400 hover:text-slate-700"
               aria-label="Close Search"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
       )}
 
-      {/* Main Canvas & Thumbnails Area */}
-      <div className="flex-1 flex flex-row overflow-hidden relative">
+      {/* 4. Main Reading & Scroll Canvas Area (100% isolated scroll - overscroll-contain) */}
+      <div className="flex-1 flex flex-row overflow-hidden relative w-full h-full">
+        {/* Thumbnails Sidebar */}
         {pdfDoc && (
           <PDFThumbnailStrip
             pdfDoc={pdfDoc}
@@ -660,11 +1006,15 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
           </div>
         )}
 
-        {/* Continuous Vertical Scroll Area */}
+        {/* Continuous Vertical Scroll Container (Strictly isolated scrolling) */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-y-auto p-4 flex flex-col items-center relative touch-pan-y"
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          tabIndex={0}
+          className="flex-1 overflow-y-auto p-2 sm:p-4 flex flex-col items-center relative touch-pan-y focus:outline-none overscroll-contain"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+          }}
         >
           {pdfDoc &&
             Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (

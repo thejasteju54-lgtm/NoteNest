@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useNoteNest } from '@/context/NoteNestContext';
 import { noteService } from '@/services/noteService';
@@ -16,16 +16,10 @@ import {
   Loader2,
   UploadCloud,
   Trash2,
-  Star,
-  BookOpen,
-  Clock,
-  Play,
-  Pause,
-  RotateCcw,
   Maximize2,
   Minimize2,
+  X,
 } from 'lucide-react';
-import { formatFileSize, formatUploadDate } from '@/utils/formatters';
 import { PDFCanvasViewer } from './PDFCanvasViewer';
 import { PDFStudyNotesDrawer } from './PDFStudyNotesDrawer';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -54,6 +48,7 @@ export const PDFViewerModal: React.FC = () => {
   const [isNotesDrawerOpen, setIsNotesDrawerOpen] = useState<boolean>(false);
   const [jumpToPage, setJumpToPage] = useState<number | undefined>(undefined);
   const [isZenMode, setIsZenMode] = useState<boolean>(false);
+  const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
 
   // Pomodoro Focus Timer State
   const [pomodoroSeconds, setPomodoroSeconds] = useState<number>(25 * 60);
@@ -61,6 +56,42 @@ export const PDFViewerModal: React.FC = () => {
   const [isPomodoroBreak, setIsPomodoroBreak] = useState<boolean>(false);
 
   const reuploadInputRef = useRef<HTMLInputElement>(null);
+
+  // Fullscreen API toggle
+  const handleToggleFullScreen = useCallback(() => {
+    setIsFullScreen((prev) => {
+      const next = !prev;
+      if (next) {
+        try {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }
+        } catch {
+          // Fallback to in-app fullscreen CSS
+        }
+      } else {
+        try {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+          }
+        } catch {
+          // Ignore
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // Sync with browser native fullscreen exit (e.g. user pressed Esc)
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement && isFullScreen) {
+        setIsFullScreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, [isFullScreen]);
 
   // Pomodoro timer tick
   useEffect(() => {
@@ -82,12 +113,6 @@ export const PDFViewerModal: React.FC = () => {
     };
   }, [isPomodoroActive, isPomodoroBreak]);
 
-  const formatPomodoro = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
-
   useEffect(() => {
     if (!previewNoteId || !user) {
       setNote(null);
@@ -96,6 +121,8 @@ export const PDFViewerModal: React.FC = () => {
       setArrayBuffer(null);
       setIsStarred(false);
       setIsNotesDrawerOpen(false);
+      setIsFullScreen(false);
+      setIsZenMode(false);
       return;
     }
 
@@ -204,263 +231,200 @@ export const PDFViewerModal: React.FC = () => {
     <Modal
       isOpen={Boolean(previewNoteId)}
       onClose={closePreview}
-      maxWidth="4xl"
-      showCloseButton={true}
+      maxWidth="full"
+      fullScreen={isFullScreen}
+      noPadding={true}
+      showCloseButton={false}
     >
       <ErrorBoundary fallbackTitle="Could not display PDF preview">
-        <div className="flex flex-col h-[82vh] sm:h-[85vh]">
-          {/* Document Meta Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2.5 sm:gap-3">
-            <div className="flex items-center gap-3 min-w-0 pr-2">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 shrink-0">
-                <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
-                    {note?.title || 'PDF Document'}
-                  </h3>
-                  {note && (
-                    <button
-                      onClick={handleToggleStar}
-                      aria-label={isStarred ? 'Remove from starred' : 'Star this note'}
-                      title={isStarred ? 'Starred note' : 'Mark as important / Star'}
-                      className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-amber-500 transition-colors"
-                    >
-                      <Star
-                        className={`w-4 h-4 ${
-                          isStarred
-                            ? 'fill-amber-400 text-amber-500'
-                            : 'text-slate-400'
-                        }`}
-                      />
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 text-[11px] sm:text-xs text-slate-500 flex-wrap">
-                  {subject && (
-                    <Badge colorId={subject.colorId} label={subject.name} size="sm" />
-                  )}
-                  {note && (
-                    <>
-                      <span className="hidden xs:inline">•</span>
-                      <span className="hidden xs:inline">{formatUploadDate(note.createdAt)}</span>
-                      <span>•</span>
-                      <span className="font-mono">{formatFileSize(note.fileSize)}</span>
-                    </>
-                  )}
-                </div>
-              </div>
+        <div className="flex flex-col w-full h-full flex-1 overflow-hidden relative">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center flex-1 w-full h-full bg-white gap-3 p-6">
+              <Loader2 className="w-9 h-9 animate-spin text-accent-sage" />
+              <p className="text-sm font-semibold text-slate-600 tracking-wide">
+                Loading PDF document...
+              </p>
             </div>
-
-            {/* Action toolbar */}
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto pt-1 sm:pt-0 flex-wrap">
-              {/* Pomodoro Focus Pill */}
-              <div
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border transition-all ${
-                  isPomodoroActive
-                    ? isPomodoroBreak
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                      : 'bg-rose-50 border-rose-200 text-rose-700'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
-                }`}
-                title={isPomodoroBreak ? 'Break Timer (5 min)' : 'Pomodoro Study Focus (25 min)'}
-              >
-                <Clock className="w-3.5 h-3.5" />
-                <span className="font-semibold">{formatPomodoro(pomodoroSeconds)}</span>
-                <button
-                  onClick={() => setIsPomodoroActive((a) => !a)}
-                  className="p-0.5 rounded hover:bg-black/5"
-                  title={isPomodoroActive ? 'Pause Timer' : 'Start Focus Timer'}
-                >
-                  {isPomodoroActive ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                </button>
-                <button
-                  onClick={() => {
-                    setIsPomodoroActive(false);
-                    setIsPomodoroBreak(false);
-                    setPomodoroSeconds(25 * 60);
-                  }}
-                  className="p-0.5 rounded hover:bg-black/5 text-slate-400 hover:text-slate-700"
-                  title="Reset 25m Focus Timer"
-                >
-                  <RotateCcw className="w-2.5 h-2.5" />
-                </button>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center flex-1 w-full h-full p-6 text-center bg-white">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 mb-3">
+                <AlertCircle className="w-6 h-6" />
               </div>
+              <h4 className="text-sm sm:text-base font-semibold text-slate-800">
+                Could not display PDF
+              </h4>
+              <p className="text-xs text-slate-500 max-w-sm mt-1.5 mb-5">
+                {error.includes('binary data missing')
+                  ? 'The PDF file binary for this note could not be retrieved from cloud storage. Re-upload the PDF to restore viewing.'
+                  : error}
+              </p>
 
-              {/* Zen Mode Button */}
-              <Button
-                variant={isZenMode ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => setIsZenMode((z) => !z)}
-                className="h-8 px-2 text-xs"
-                title={isZenMode ? 'Exit Zen Mode' : 'Zen Focus Mode (Distraction-Free)'}
-              >
-                {isZenMode ? (
-                  <>
-                    <Minimize2 className="w-3.5 h-3.5 mr-1" />
-                    Exit Zen
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="w-3.5 h-3.5 mr-1" />
-                    Zen
-                  </>
+              <input
+                ref={reuploadInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={handleReupload}
+              />
+
+              <div className="flex items-center gap-2.5 flex-wrap justify-center">
+                {note && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => reuploadInputRef.current?.click()}
+                    isLoading={isReuploading}
+                    leftIcon={<UploadCloud className="w-4 h-4" />}
+                  >
+                    Re-upload PDF File
+                  </Button>
                 )}
-              </Button>
-
-              {note && (
-                <Button
-                  variant={isNotesDrawerOpen ? 'primary' : 'outline'}
-                  size="sm"
-                  onClick={() => setIsNotesDrawerOpen((o) => !o)}
-                  leftIcon={<BookOpen className="w-3.5 h-3.5" />}
-                  title="Toggle Study Notes / Lecture Scratchpad"
-                >
-                  <span className="hidden xs:inline">Scratchpad</span>
-                  <span className="xs:hidden">Notes</span>
+                {note && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={async () => {
+                      if (window.confirm(`Are you sure you want to delete "${note.title}"?`)) {
+                        await deleteNote(note.id);
+                        closePreview();
+                      }
+                    }}
+                    leftIcon={<Trash2 className="w-4 h-4" />}
+                  >
+                    Delete Note
+                  </Button>
+                )}
+                <Button variant="secondary" size="sm" onClick={closePreview}>
+                  Close
                 </Button>
-              )}
-
-              {blobUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setViewMode((m) => (m === 'canvas' ? 'native' : 'canvas'))}
-                  className="hidden md:inline-flex"
-                  title="Switch between Canvas and Native PDF Engine"
-                >
-                  {viewMode === 'canvas' ? 'Native View' : 'Canvas View'}
-                </Button>
-              )}
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrint}
-                disabled={!blobUrl}
-                leftIcon={<Printer className="w-3.5 h-3.5" />}
-                className="hidden sm:inline-flex"
-              >
-                Print
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenInNewTab}
-                disabled={!blobUrl}
-                leftIcon={<ExternalLink className="w-3.5 h-3.5" />}
-              >
-                <span className="hidden xs:inline">Open Tab</span>
-                <span className="xs:hidden">Open</span>
-              </Button>
-
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => note && downloadNote(note.id)}
-                disabled={!blobUrl}
-                leftIcon={<Download className="w-3.5 h-3.5" />}
-              >
-                Download
-              </Button>
+              </div>
             </div>
-          </div>
-
-          {/* PDF Viewer & Study Notes Side-by-Side Area */}
-          <div className="flex-1 w-full bg-slate-900/5 rounded-xl overflow-hidden mt-3 relative border border-slate-200/80 flex flex-row">
-            <div className="flex-1 relative h-full overflow-hidden">
-              {isLoading ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white">
-                  <Loader2 className="w-8 h-8 animate-spin text-accent-sage" />
-                  <p className="text-xs font-medium text-slate-500">Loading PDF document...</p>
-                </div>
-              ) : error ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-white">
-                  <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 mb-3">
-                    <AlertCircle className="w-6 h-6" />
-                  </div>
-                  <h4 className="text-sm sm:text-base font-semibold text-slate-800">Could not display PDF</h4>
-                  <p className="text-xs text-slate-500 max-w-sm mt-1.5 mb-5">
-                    {error.includes('binary data missing')
-                      ? 'The PDF file binary for this note could not be retrieved from cloud storage. Re-upload the PDF to restore viewing.'
-                      : error}
-                  </p>
-
-                  <input
-                    ref={reuploadInputRef}
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={handleReupload}
-                  />
-
-                  <div className="flex items-center gap-2.5 flex-wrap justify-center">
-                    {note && (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => reuploadInputRef.current?.click()}
-                        isLoading={isReuploading}
-                        leftIcon={<UploadCloud className="w-4 h-4" />}
-                      >
-                        Re-upload PDF File
-                      </Button>
-                    )}
-                    {note && (
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={async () => {
-                          if (window.confirm(`Are you sure you want to delete "${note.title}"?`)) {
-                            await deleteNote(note.id);
-                            closePreview();
-                          }
-                        }}
-                        leftIcon={<Trash2 className="w-4 h-4" />}
-                      >
-                        Delete Note
-                      </Button>
-                    )}
-                    <Button variant="secondary" size="sm" onClick={closePreview}>
-                      Close
-                    </Button>
-                  </div>
-                </div>
-              ) : blobUrl ? (
-                viewMode === 'canvas' ? (
+          ) : blobUrl ? (
+            viewMode === 'canvas' ? (
+              <div className="flex flex-row w-full h-full flex-1 overflow-hidden relative">
+                {/* 100% PDF View with Unified Master Toolbar */}
+                <div className="flex-1 flex flex-col h-full overflow-hidden relative">
                   <PDFCanvasViewer
                     blobUrl={blobUrl}
                     arrayBuffer={arrayBuffer}
                     noteId={note?.id}
                     title={note?.title}
+                    subjectName={subject?.name}
+                    subjectColorId={subject?.colorId}
+                    isStarred={isStarred}
+                    onToggleStar={handleToggleStar}
+                    isFullScreen={isFullScreen}
+                    onToggleFullScreen={handleToggleFullScreen}
+                    isZenMode={isZenMode}
+                    onToggleZenMode={() => setIsZenMode((z) => !z)}
+                    isNotesDrawerOpen={isNotesDrawerOpen}
+                    onToggleNotesDrawer={() => setIsNotesDrawerOpen((o) => !o)}
+                    onClose={closePreview}
+                    onDownload={() => note && downloadNote(note.id)}
+                    onPrint={handlePrint}
+                    onOpenInTab={handleOpenInNewTab}
+                    pomodoroSeconds={pomodoroSeconds}
+                    isPomodoroActive={isPomodoroActive}
+                    isPomodoroBreak={isPomodoroBreak}
+                    onTogglePomodoro={() => setIsPomodoroActive((a) => !a)}
+                    onResetPomodoro={() => {
+                      setIsPomodoroActive(false);
+                      setIsPomodoroBreak(false);
+                      setPomodoroSeconds(25 * 60);
+                    }}
                     onFallback={() => setViewMode('native')}
                     externalPage={jumpToPage}
                   />
-                ) : (
-                  <iframe
-                    id="pdf-viewer-frame"
-                    src={`${blobUrl}#toolbar=1&navpanes=1`}
-                    title={note?.title || 'PDF Preview'}
-                    className="w-full h-full border-none rounded-xl bg-white"
-                  />
-                )
-              ) : null}
-            </div>
+                </div>
 
-            {/* Collapsible Study Notes Drawer */}
-            {note && (
-              <PDFStudyNotesDrawer
-                noteId={note.id}
-                noteTitle={note.title}
-                isOpen={isNotesDrawerOpen}
-                onClose={() => setIsNotesDrawerOpen(false)}
-                onJumpToPage={(p) => setJumpToPage(p)}
-              />
-            )}
-          </div>
+                {/* Collapsible Study Notes Drawer */}
+                {note && (
+                  <PDFStudyNotesDrawer
+                    noteId={note.id}
+                    noteTitle={note.title}
+                    isOpen={isNotesDrawerOpen}
+                    onClose={() => setIsNotesDrawerOpen(false)}
+                    onJumpToPage={(p) => setJumpToPage(p)}
+                  />
+                )}
+              </div>
+            ) : (
+              /* Fallback Native PDF View with Matching Compact 44px Top Bar */
+              <div className="flex flex-col w-full h-full flex-1 overflow-hidden">
+                <div className="h-11 sm:h-12 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 flex items-center justify-between gap-2 shrink-0 z-20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      onClick={closePreview}
+                      className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+                      title="Close Preview (Esc)"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <FileText className="w-4 h-4 text-rose-500 shrink-0" />
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                      {note?.title || 'PDF Document'}
+                    </h3>
+                    {subject && (
+                      <Badge colorId={subject.colorId} label={subject.name} size="sm" />
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setViewMode('canvas')}
+                      className="h-7 px-2.5 text-xs font-semibold"
+                    >
+                      Switch to Canvas View
+                    </Button>
+                    <button
+                      onClick={handleToggleFullScreen}
+                      className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                      title={isFullScreen ? 'Exit Full Size (F)' : 'Full Size (F)'}
+                    >
+                      {isFullScreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                      <span className="hidden sm:inline">{isFullScreen ? 'Exit' : 'Full Size'}</span>
+                    </button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePrint}
+                      className="h-7 w-7 p-0"
+                      title="Print"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenInNewTab}
+                      className="h-7 w-7 p-0"
+                      title="Open in Tab"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => note && downloadNote(note.id)}
+                      className="h-7 w-7 p-0"
+                      title="Download PDF"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <iframe
+                  id="pdf-viewer-frame"
+                  src={`${blobUrl}#toolbar=1&navpanes=1`}
+                  title={note?.title || 'PDF Preview'}
+                  className="w-full flex-1 border-none bg-white"
+                />
+              </div>
+            )
+          ) : null}
         </div>
       </ErrorBoundary>
     </Modal>

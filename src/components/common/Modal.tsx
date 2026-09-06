@@ -8,8 +8,12 @@ export interface ModalProps {
   title?: React.ReactNode;
   description?: React.ReactNode;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | 'full';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '7xl' | 'full';
   showCloseButton?: boolean;
+  fullScreen?: boolean;
+  noPadding?: boolean;
+  className?: string;
+  bodyClassName?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -20,6 +24,10 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidth = 'md',
   showCloseButton = true,
+  fullScreen = false,
+  noPadding = false,
+  className,
+  bodyClassName,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -51,18 +59,25 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
     '4xl': 'max-w-4xl',
-    full: 'max-w-5xl',
+    '7xl': 'max-w-7xl w-full',
+    full: 'w-[96vw] max-w-[1550px] h-[94vh]',
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      className={clsx(
+        'fixed inset-0 z-50 flex items-center justify-center',
+        fullScreen ? 'p-0 overflow-hidden' : noPadding ? 'p-2 sm:p-4 overflow-hidden' : 'p-3 sm:p-6 overflow-y-auto'
+      )}
       role="dialog"
       aria-modal="true"
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-200"
+        className={clsx(
+          'fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-200',
+          fullScreen && 'bg-slate-950'
+        )}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -71,14 +86,17 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         ref={modalRef}
         className={clsx(
-          'relative w-full glass-modal rounded-2xl shadow-modal z-10 overflow-hidden flex flex-col',
-          'transform transition-all duration-200 animate-in fade-in zoom-in-95 my-auto',
-          maxWidthStyles[maxWidth]
+          'relative w-full z-10 overflow-hidden flex flex-col',
+          'transform transition-all duration-200 animate-in fade-in zoom-in-95',
+          fullScreen
+            ? 'w-screen h-screen max-w-none max-h-none rounded-none shadow-none my-0 border-0 bg-slate-900'
+            : clsx('glass-modal rounded-2xl shadow-modal my-auto', maxWidthStyles[maxWidth]),
+          className
         )}
       >
         {/* Header */}
-        {(title || showCloseButton) && (
-          <div className="flex items-start justify-between p-4 sm:p-5 pb-3 border-b border-slate-100/80">
+        {(title || showCloseButton) && !fullScreen && (
+          <div className="flex items-start justify-between p-4 sm:p-5 pb-3 border-b border-slate-100/80 shrink-0">
             <div className="space-y-0.5 sm:space-y-1 pr-4 min-w-0">
               {title && (
                 <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
@@ -103,7 +121,16 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         {/* Content */}
-        <div className="p-4 sm:p-5 overflow-y-auto max-h-[85vh]">{children}</div>
+        <div
+          className={clsx(
+            fullScreen || noPadding
+              ? 'p-0 overflow-hidden flex-1 h-full flex flex-col'
+              : 'p-4 sm:p-5 overflow-y-auto max-h-[85vh]',
+            bodyClassName
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
