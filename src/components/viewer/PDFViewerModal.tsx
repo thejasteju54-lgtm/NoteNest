@@ -33,6 +33,8 @@ export const PDFViewerModal: React.FC = () => {
 
   const [note, setNote] = useState<Note | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [arrayBuffer, setArrayBuffer] = useState<ArrayBuffer | null>(null);
+  const [viewMode, setViewMode] = useState<'canvas' | 'native'>('canvas');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isReuploading, setIsReuploading] = useState<boolean>(false);
@@ -43,6 +45,7 @@ export const PDFViewerModal: React.FC = () => {
       setNote(null);
       if (blobUrl) URL.revokeObjectURL(blobUrl);
       setBlobUrl(null);
+      setArrayBuffer(null);
       return;
     }
 
@@ -67,8 +70,10 @@ export const PDFViewerModal: React.FC = () => {
           throw new Error('PDF file binary data missing from cloud storage.');
         }
 
+        const buf = await blob.arrayBuffer();
         const url = URL.createObjectURL(blob);
         if (isMounted) {
+          setArrayBuffer(buf);
           setBlobUrl(url);
           setIsLoading(false);
         }
@@ -121,7 +126,9 @@ export const PDFViewerModal: React.FC = () => {
       const blob = await noteService.getNoteFileBlob(user.id, note.id);
       if (blob) {
         if (blobUrl) URL.revokeObjectURL(blobUrl);
+        const buf = await blob.arrayBuffer();
         const newUrl = URL.createObjectURL(blob);
+        setArrayBuffer(buf);
         setBlobUrl(newUrl);
         setIsLoading(false);
       }
@@ -172,6 +179,17 @@ export const PDFViewerModal: React.FC = () => {
 
           {/* Action toolbar */}
           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto pt-1 sm:pt-0">
+            {blobUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewMode((m) => (m === 'canvas' ? 'native' : 'canvas'))}
+                className="hidden sm:inline-flex"
+                title="Switch between Canvas and Native PDF Engine"
+              >
+                {viewMode === 'canvas' ? 'Native View' : 'Canvas View'}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -265,7 +283,21 @@ export const PDFViewerModal: React.FC = () => {
               </div>
             </div>
           ) : blobUrl ? (
-            <PDFCanvasViewer blobUrl={blobUrl} title={note?.title} />
+            viewMode === 'canvas' ? (
+              <PDFCanvasViewer
+                blobUrl={blobUrl}
+                arrayBuffer={arrayBuffer}
+                title={note?.title}
+                onFallback={() => setViewMode('native')}
+              />
+            ) : (
+              <iframe
+                id="pdf-viewer-frame"
+                src={`${blobUrl}#toolbar=1&navpanes=1`}
+                title={note?.title || 'PDF Preview'}
+                className="w-full h-full border-none rounded-xl bg-white"
+              />
+            )
           ) : null}
         </div>
       </div>

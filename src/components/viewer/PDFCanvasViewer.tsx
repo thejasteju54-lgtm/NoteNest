@@ -10,6 +10,7 @@ import {
   Loader2,
   AlertCircle,
   Maximize2,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/common/Button';
 
@@ -18,10 +19,16 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface PDFCanvasViewerProps {
   blobUrl: string;
+  arrayBuffer?: ArrayBuffer | null;
   title?: string;
+  onFallback?: () => void;
 }
 
-export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({ blobUrl }) => {
+export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
+  blobUrl,
+  arrayBuffer,
+  onFallback,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -40,38 +47,61 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({ blobUrl }) => 
   // Load PDF Document
   useEffect(() => {
     let isCancelled = false;
+    let loadingTask: pdfjsLib.PDFDocumentLoadingTask | null = null;
+
     setIsLoading(true);
     setError(null);
     setCurrentPage(1);
     setPageInput('1');
 
-    const loadingTask = pdfjsLib.getDocument({
-      url: blobUrl,
-      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/cmaps/',
-      cMapPacked: true,
-    });
+    async function loadPdf() {
+      try {
+        let bytes: Uint8Array;
 
-    loadingTask.promise
-      .then((doc) => {
+        if (arrayBuffer && arrayBuffer.byteLength > 0) {
+          bytes = new Uint8Array(arrayBuffer);
+        } else {
+          // Fetch on the main window thread where blob URLs are accessible
+          const res = await fetch(blobUrl);
+          if (!res.ok) {
+            throw new Error(`Failed to read PDF blob: HTTP ${res.status}`);
+          }
+          const buf = await res.arrayBuffer();
+          bytes = new Uint8Array(buf);
+        }
+
+        if (isCancelled) return;
+
+        // Pass raw bytes to PDF.js worker so it doesn't need to fetch any URL in worker thread
+        loadingTask = pdfjsLib.getDocument({
+          data: bytes,
+        });
+
+        const doc = await loadingTask.promise;
         if (!isCancelled) {
           setPdfDoc(doc);
           setNumPages(doc.numPages);
           setIsLoading(false);
         }
-      })
-      .catch((err) => {
+      } catch (err: unknown) {
         if (!isCancelled) {
           console.error('PDF.js document load error:', err);
-          setError('Failed to parse PDF document.');
+          const msg = err instanceof Error ? err.message : 'Failed to parse PDF document.';
+          setError(msg);
           setIsLoading(false);
         }
-      });
+      }
+    }
+
+    loadPdf();
 
     return () => {
       isCancelled = true;
-      loadingTask.destroy();
+      if (loadingTask) {
+        loadingTask.destroy();
+      }
     };
-  }, [blobUrl]);
+  }, [blobUrl, arrayBuffer]);
 
   // Render Page onto Canvas
   const renderPage = useCallback(
@@ -141,7 +171,6 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({ blobUrl }) => 
       pdfDoc.getPage(1).then((firstPage) => {
         const viewport = firstPage.getViewport({ scale: 1 });
         const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
-        // Leave comfortable padding
         const availableWidth = Math.max(300, containerWidth - 48);
         const autoScale = Math.min(2.0, Math.max(0.6, availableWidth / viewport.width));
         setScale(Number(autoScale.toFixed(2)));
@@ -208,7 +237,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({ blobUrl }) => 
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white text-slate-500">
         <Loader2 className="w-8 h-8 animate-spin text-accent-sage mb-2" />
-        <p className="text-xs font-medium">Parsing PDF pages...</p>
+        <p className="text-xs font-medium">Rendering PDF pages...</p>
       </div>
     );
   }
@@ -217,10 +246,25 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({ blobUrl }) => 
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white text-center">
         <AlertCircle className="w-10 h-10 text-rose-500 mb-2" />
-        <p className="font-semibold text-slate-800 text-sm">{error}</p>
-        <p className="text-xs text-slate-500 mt-1 max-w-xs">
-          The document could not be rendered inside the canvas viewer.
+        <p className="font-semibold text-slate-800 text-sm">Could not render inside Canvas Viewer</p>
+        <p className="text-xs text-slate-500 mt-1 max-w-xs mb-4">
+          {error}
         </p>
+        <div className="flex items-center gap-2">
+          {onFallback && (
+            <Button variant="primary" size="sm" onClick={onFallback}>
+              Switch to Standard Viewer
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(blobUrl, '_blank')}
+            leftIcon={<ExternalLink className="w-3.5 h-3.5" />}
+          >
+            Open in Tab
+          </Button>
+        </div>
       </div>
     );
   }
@@ -318,6 +362,18 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({ blobUrl }) => 
           >
             <RotateCw className="w-3.5 h-3.5" />
           </Button>
+
+          {onFallback && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onFallback}
+              className="h-8 px-2 text-[11px] text-slate-500 hover:text-slate-800"
+              title="Switch to Browser Built-in PDF Engine"
+            >
+              Native View
+            </Button>
+          )}
         </div>
       </div>
 
