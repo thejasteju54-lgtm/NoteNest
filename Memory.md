@@ -20,6 +20,7 @@ This file records key architecture decisions, state transitions, context, and pe
 | Initial | User-Scoped Storage Paths | PDF storage paths formatted as `{userId}/{subjectId}/{timestamp}_{fileName}.pdf` in private `'notes'` bucket. | **Accepted** |
 | Initial | Safe Opt-In Local Migration | When signing in to Supabase, an opt-in banner allows importing existing local IndexedDB notes to the cloud account with explicit confirmation. | **Accepted** |
 | 2026-09-06 | Cloud Storage Routing & Hybrid Caching Fix | Removed mock R2 credentials that hijacked PDF uploads, defaulted to verified Supabase Storage (`notenest-files`), added IndexedDB local caching fallback, and added in-modal PDF re-upload recovery. | **Accepted** |
+| 2026-09-06 | In-App PDF Rendering with PDF.js Canvas | Replaced native `<iframe>` PDF rendering with `PDFCanvasViewer` using `pdfjs-dist` to enable crisp, responsive, high-DPI in-app PDF viewing across Android Chrome, iOS Safari, PWA, and desktop browsers without plugin dependency. | **Accepted** |
 
 ---
 

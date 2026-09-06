@@ -18,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { formatFileSize, formatUploadDate } from '@/utils/formatters';
+import { PDFCanvasViewer } from './PDFCanvasViewer';
 
 export const PDFViewerModal: React.FC = () => {
   const { user } = useAuth();
@@ -264,12 +265,7 @@ export const PDFViewerModal: React.FC = () => {
               </div>
             </div>
           ) : blobUrl ? (
-            <iframe
-              id="pdf-viewer-frame"
-              src={`${blobUrl}#toolbar=1&navpanes=1`}
-              title={note?.title || 'PDF Preview'}
-              className="w-full h-full border-none rounded-xl bg-white"
-            />
+            <PDFCanvasViewer blobUrl={blobUrl} title={note?.title} />
           ) : null}
         </div>
       </div>
