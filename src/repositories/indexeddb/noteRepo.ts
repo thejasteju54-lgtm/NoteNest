@@ -177,7 +177,53 @@ export class IndexedDBNoteRepository implements INoteRepository {
       });
     });
   }
+  async saveFileBlob(noteId: string, userId: string, blob: Blob): Promise<void> {
+    return withTransaction([STORES.FILES], 'readwrite', async (tx) => {
+      const fileStore = tx.objectStore(STORES.FILES);
+      return new Promise<void>((resolve, reject) => {
+        const fileRecord: FileRecord = {
+          id: noteId,
+          userId,
+          blob,
+          createdAt: new Date().toISOString(),
+        };
+        const req = fileStore.put(fileRecord);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    });
+  }
 
+  async updateFileBlob(
+    id: string,
+    userId: string,
+    fileBlob: Blob,
+    fileName: string,
+    fileSize: number
+  ): Promise<Note> {
+    const existing = await this.getById(id, userId);
+    if (!existing) {
+      throw new Error(`Note not found or access denied: ${id}`);
+    }
+
+    const updatedNote: Note = {
+      ...existing,
+      fileName,
+      fileSize,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.saveFileBlob(id, userId, fileBlob);
+
+    return withTransaction([STORES.NOTES], 'readwrite', async (tx) => {
+      const noteStore = tx.objectStore(STORES.NOTES);
+      return new Promise<Note>((resolve, reject) => {
+        const req = noteStore.put(updatedNote);
+        req.onsuccess = () => resolve(updatedNote);
+        req.onerror = () => reject(req.error);
+      });
+    });
+  }
   async countBySubject(subjectId: string, userId: string): Promise<number> {
     return withTransaction([STORES.NOTES], 'readonly', async (tx) => {
       const store = tx.objectStore(STORES.NOTES);

@@ -18,6 +18,13 @@ export interface INoteRepository {
   delete(id: string, userId: string): Promise<boolean>;
   deleteBySubject(subjectId: string, userId: string): Promise<number>;
   getFileBlob(id: string, userId: string): Promise<Blob | null>;
+  updateFileBlob?(
+    id: string,
+    userId: string,
+    fileBlob: Blob,
+    fileName: string,
+    fileSize: number
+  ): Promise<Note>;
   countBySubject(subjectId: string, userId: string): Promise<number>;
 }
 

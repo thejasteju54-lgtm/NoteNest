@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useNoteNest } from '@/context/NoteNestContext';
 import { noteService } from '@/services/noteService';
@@ -14,17 +14,28 @@ import {
   FileText,
   AlertCircle,
   Loader2,
+  UploadCloud,
+  Trash2,
 } from 'lucide-react';
 import { formatFileSize, formatUploadDate } from '@/utils/formatters';
 
 export const PDFViewerModal: React.FC = () => {
   const { user } = useAuth();
-  const { previewNoteId, closePreview, subjects, downloadNote } = useNoteNest();
+  const {
+    previewNoteId,
+    closePreview,
+    subjects,
+    downloadNote,
+    reuploadNoteFile,
+    deleteNote,
+  } = useNoteNest();
 
   const [note, setNote] = useState<Note | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isReuploading, setIsReuploading] = useState<boolean>(false);
+  const reuploadInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!previewNoteId || !user) {
@@ -45,6 +56,11 @@ export const PDFViewerModal: React.FC = () => {
           throw new Error('Note could not be found.');
         }
 
+        // Immediately set note metadata so header displays title & details even if file binary fails
+        if (isMounted) {
+          setNote(foundNote);
+        }
+
         const blob = await noteService.getNoteFileBlob(user!.id, previewNoteId!);
         if (!blob) {
           throw new Error('PDF file binary data missing from cloud storage.');
@@ -52,7 +68,6 @@ export const PDFViewerModal: React.FC = () => {
 
         const url = URL.createObjectURL(blob);
         if (isMounted) {
-          setNote(foundNote);
           setBlobUrl(url);
           setIsLoading(false);
         }
@@ -88,6 +103,34 @@ export const PDFViewerModal: React.FC = () => {
         iframe.contentWindow.print();
       } else {
         window.open(blobUrl, '_blank')?.print();
+      }
+    }
+  };
+
+  const handleReupload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !note || !user) return;
+
+    try {
+      setIsReuploading(true);
+      setError(null);
+      const updated = await reuploadNoteFile(note.id, file);
+      setNote(updated);
+
+      const blob = await noteService.getNoteFileBlob(user.id, note.id);
+      if (blob) {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        const newUrl = URL.createObjectURL(blob);
+        setBlobUrl(newUrl);
+        setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Re-upload failed';
+      setError(msg);
+    } finally {
+      setIsReuploading(false);
+      if (reuploadInputRef.current) {
+        reuploadInputRef.current.value = '';
       }
     }
   };
@@ -132,6 +175,7 @@ export const PDFViewerModal: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={handlePrint}
+              disabled={!blobUrl}
               leftIcon={<Printer className="w-3.5 h-3.5" />}
               className="hidden sm:inline-flex"
             >
@@ -141,6 +185,7 @@ export const PDFViewerModal: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={handleOpenInNewTab}
+              disabled={!blobUrl}
               leftIcon={<ExternalLink className="w-3.5 h-3.5" />}
             >
               <span className="hidden xs:inline">Open Tab</span>
@@ -150,6 +195,7 @@ export const PDFViewerModal: React.FC = () => {
               variant="primary"
               size="sm"
               onClick={() => note && downloadNote(note.id)}
+              disabled={!blobUrl}
               leftIcon={<Download className="w-3.5 h-3.5" />}
             >
               Download
@@ -166,14 +212,56 @@ export const PDFViewerModal: React.FC = () => {
             </div>
           ) : error ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-white">
-              <AlertCircle className="w-8 h-8 text-rose-500 mb-2" />
-              <h4 className="text-sm font-semibold text-slate-800">Could not display PDF</h4>
-              <p className="text-xs text-slate-500 max-w-sm mt-1 mb-4">{error}</p>
-              {note && (
-                <Button variant="secondary" size="sm" onClick={() => downloadNote(note.id)}>
-                  Download File Directly
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 mb-3">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm sm:text-base font-semibold text-slate-800">Could not display PDF</h4>
+              <p className="text-xs text-slate-500 max-w-sm mt-1.5 mb-5">
+                {error.includes('binary data missing')
+                  ? 'The PDF file binary for this note could not be retrieved from cloud storage. Re-upload the PDF to restore viewing.'
+                  : error}
+              </p>
+
+              {/* Hidden file input for re-uploading PDF */}
+              <input
+                ref={reuploadInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={handleReupload}
+              />
+
+              <div className="flex items-center gap-2.5 flex-wrap justify-center">
+                {note && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => reuploadInputRef.current?.click()}
+                    isLoading={isReuploading}
+                    leftIcon={<UploadCloud className="w-4 h-4" />}
+                  >
+                    Re-upload PDF File
+                  </Button>
+                )}
+                {note && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={async () => {
+                      if (window.confirm(`Are you sure you want to delete "${note.title}"?`)) {
+                        await deleteNote(note.id);
+                        closePreview();
+                      }
+                    }}
+                    leftIcon={<Trash2 className="w-4 h-4" />}
+                  >
+                    Delete Note
+                  </Button>
+                )}
+                <Button variant="secondary" size="sm" onClick={closePreview}>
+                  Close
                 </Button>
-              )}
+              </div>
             </div>
           ) : blobUrl ? (
             <iframe

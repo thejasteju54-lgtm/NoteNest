@@ -2,6 +2,7 @@ import { Note } from '@/types/note';
 import { INoteRepository } from '@/types/repository';
 import { supabase } from '@/lib/supabase';
 import { supabaseStorageRepo } from './supabaseStorageRepo';
+import { IndexedDBNoteRepository } from '../indexeddb/noteRepo';
 
 interface SupabaseNoteRow {
   id: string;
@@ -113,7 +114,17 @@ export class SupabaseNoteRepository implements INoteRepository {
       throw new Error(`Failed to save note record in database: ${error?.message}`);
     }
 
-    return mapRowToNote(data as SupabaseNoteRow);
+    const createdNote = mapRowToNote(data as SupabaseNoteRow);
+
+    // Cache binary in local IndexedDB for zero-latency preview and offline resilience
+    try {
+      const idbRepo = new IndexedDBNoteRepository();
+      await idbRepo.saveFileBlob(createdNote.id, createdNote.userId, fileBlob);
+    } catch (err) {
+      console.warn('Local storage caching notice:', err);
+    }
+
+    return createdNote;
   }
 
   async update(
@@ -195,9 +206,80 @@ export class SupabaseNoteRepository implements INoteRepository {
   async getFileBlob(id: string, userId: string): Promise<Blob | null> {
     const note = await this.getById(id, userId);
     const path = note?.storagePath || note?.filePath;
-    if (!path) return null;
 
-    return supabaseStorageRepo.downloadFile(path);
+    let blob: Blob | null = null;
+    if (path) {
+      blob = await supabaseStorageRepo.downloadFile(path);
+    }
+
+    // Graceful fallback: check local IndexedDB cache if cloud download returned null
+    if (!blob) {
+      try {
+        const idbRepo = new IndexedDBNoteRepository();
+        blob = await idbRepo.getFileBlob(id, userId);
+      } catch (err) {
+        console.warn('Local storage fallback lookup notice:', err);
+      }
+    }
+
+    return blob;
+  }
+
+  async updateFileBlob(
+    id: string,
+    userId: string,
+    fileBlob: Blob,
+    fileName: string,
+    fileSize: number
+  ): Promise<Note> {
+    if (!supabase) {
+      throw new Error('Supabase is not configured.');
+    }
+
+    const existing = await this.getById(id, userId);
+    if (!existing) {
+      throw new Error('Note not found or access denied.');
+    }
+
+    // 1. Upload new PDF Blob to Cloud Storage
+    const storagePath = await supabaseStorageRepo.uploadFile(
+      userId,
+      existing.subjectId,
+      fileBlob
+    );
+
+    // 2. Update PostgreSQL record
+    const { data, error } = await supabase
+      .from('notes')
+      .update({
+        storage_path: storagePath,
+        file_name: fileName,
+        file_size: fileSize,
+        mime_type: 'application/pdf',
+      })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error || !data) {
+      await supabaseStorageRepo.deleteFile(storagePath);
+      throw new Error(`Failed to update note record in database: ${error?.message}`);
+    }
+
+    // 3. Delete old file from storage if existing and distinct
+    const oldPath = existing.storagePath || existing.filePath;
+    if (oldPath && oldPath !== storagePath) {
+      await supabaseStorageRepo.deleteFile(oldPath).catch(() => {});
+    }
+
+    // 4. Update local IndexedDB cache
+    try {
+      const idbRepo = new IndexedDBNoteRepository();
+      await idbRepo.saveFileBlob(id, userId, fileBlob);
+    } catch {}
+
+    return mapRowToNote(data as SupabaseNoteRow);
   }
 
   async countBySubject(subjectId: string, userId: string): Promise<number> {

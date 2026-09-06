@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { activeStorageRepo } from '@/repositories/storage';
-import { CloudflareR2StorageRepository } from '@/repositories/storage/r2StorageRepo';
+import { CloudflareR2StorageRepository, isR2Configured } from '@/repositories/storage/r2StorageRepo';
 import { SupabaseFileStorageRepository } from '@/repositories/storage/supabaseStorageRepo';
 
 describe('High-Capacity Multi-Provider Storage Engine', () => {
   it('should initialize UniversalStorageManager with valid default provider', () => {
     const providerName = activeStorageRepo.getProviderName();
-    expect(['Cloudflare R2 (10 GB)', 'Supabase Cloud Storage (1 GB)']).toContain(providerName);
+    expect(providerName).toBe('Supabase Cloud Storage (1 GB)');
 
     const quota = activeStorageRepo.getQuotaBytes();
-    expect(quota).toBeGreaterThanOrEqual(1024 * 1024 * 1024); // At least 1 GB
+    expect(quota).toBe(1024 * 1024 * 1024); // 1 GB default Supabase storage quota
   });
 
   it('should provide 10 GB quota on Cloudflare R2 repository', () => {
@@ -37,5 +37,9 @@ describe('High-Capacity Multi-Provider Storage Engine', () => {
     const supaRepo = new SupabaseFileStorageRepository();
     expect(supaRepo.getProviderName()).toBe('Supabase Cloud Storage (1 GB)');
     expect(supaRepo.getQuotaBytes()).toBe(1024 * 1024 * 1024);
+  });
+
+  it('should report isR2Configured as false when publicDomain or credentials are missing', () => {
+    expect(isR2Configured()).toBe(false);
   });
 });

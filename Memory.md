@@ -19,6 +19,7 @@ This file records key architecture decisions, state transitions, context, and pe
 | Initial | Row Level Security (RLS) | Strictly enabled database and storage RLS ensuring users can only read, insert, update, and delete their own subjects, notes, and PDF files. | **Accepted** |
 | Initial | User-Scoped Storage Paths | PDF storage paths formatted as `{userId}/{subjectId}/{timestamp}_{fileName}.pdf` in private `'notes'` bucket. | **Accepted** |
 | Initial | Safe Opt-In Local Migration | When signing in to Supabase, an opt-in banner allows importing existing local IndexedDB notes to the cloud account with explicit confirmation. | **Accepted** |
+| 2026-09-06 | Cloud Storage Routing & Hybrid Caching Fix | Removed mock R2 credentials that hijacked PDF uploads, defaulted to verified Supabase Storage (`notenest-files`), added IndexedDB local caching fallback, and added in-modal PDF re-upload recovery. | **Accepted** |
 
 ---
 

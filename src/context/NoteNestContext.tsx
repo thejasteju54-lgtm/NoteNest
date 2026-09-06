@@ -42,6 +42,7 @@ interface NoteNestContextValue {
   updateSubject: (id: string, name: string, colorId?: string, description?: string) => Promise<Subject>;
   deleteSubject: (id: string) => Promise<void>;
   uploadNote: (subjectId: string, title: string, file: File) => Promise<Note>;
+  reuploadNoteFile: (id: string, file: File) => Promise<Note>;
   renameNote: (id: string, newTitle: string) => Promise<Note>;
   deleteNote: (id: string) => Promise<void>;
   downloadNote: (id: string) => Promise<void>;
@@ -239,6 +240,20 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const reuploadNoteFile = async (id: string, file: File) => {
+    if (!user) throw new Error('Not authenticated');
+    try {
+      const updated = await noteService.reuploadNoteFile(user.id, id, file);
+      success('PDF restored', `Successfully attached PDF for "${updated.title}".`);
+      await refreshData();
+      return updated;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not re-upload PDF file.';
+      showError('Re-upload failed', message);
+      throw err;
+    }
+  };
+
   const renameNote = async (id: string, newTitle: string) => {
     if (!user) throw new Error('Not authenticated');
     try {
@@ -305,6 +320,7 @@ export const NoteNestProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateSubject,
         deleteSubject,
         uploadNote,
+        reuploadNoteFile,
         renameNote,
         deleteNote,
         downloadNote,

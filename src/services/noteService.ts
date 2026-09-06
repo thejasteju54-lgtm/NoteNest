@@ -94,6 +94,34 @@ export class NoteService {
     return repositories.noteRepo.getFileBlob(id, userId);
   }
 
+  async reuploadNoteFile(userId: string, id: string, file: File): Promise<Note> {
+    if (!userId) {
+      throw new Error('User authentication required.');
+    }
+    if (!id) {
+      throw new Error('Note ID required.');
+    }
+
+    // 1. Verify note exists and belongs to user
+    const note = await this.getNoteById(userId, id);
+    if (!note) {
+      throw new Error('Note not found or access denied.');
+    }
+
+    // 2. Layered File Validation (Extension, MIME, Size, Signature)
+    const validation = await fileValidationService.validatePdfFile(file);
+    if (!validation.isValid) {
+      throw new Error(validation.error || 'Invalid PDF file.');
+    }
+
+    // 3. Update File Blob in Repository
+    if (repositories.noteRepo.updateFileBlob) {
+      return repositories.noteRepo.updateFileBlob(id, userId, file, file.name, file.size);
+    }
+
+    throw new Error('File re-upload is not supported by the active storage provider.');
+  }
+
   async getRecentNotes(userId: string, limit = 8): Promise<Note[]> {
     if (!userId) return [];
     const notes = await repositories.noteRepo.getAll(userId);

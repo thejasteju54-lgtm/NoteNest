@@ -10,17 +10,13 @@ export interface R2Config {
   publicDomain?: string;
 }
 
-// Centralized Cloudflare R2 Credentials (10 GB Free Storage Engine)
-const DEFAULT_R2_ACCOUNT_ID = 'ce3188a40a71656456c6bc5e937076fa';
-const DEFAULT_R2_ACCESS_KEY_ID = '804f21464c86ad073007ec0cda1169dd';
-const DEFAULT_R2_SECRET_ACCESS_KEY = 'a8079b561dee448c3f93d6950ced18ac09e0df1881f8d0b902e0c245ec061cd6';
 const DEFAULT_R2_BUCKET = 'notenest-files';
 
 export function getR2Config(): R2Config {
   return {
-    accountId: import.meta.env.VITE_R2_ACCOUNT_ID?.trim() || DEFAULT_R2_ACCOUNT_ID,
-    accessKeyId: import.meta.env.VITE_R2_ACCESS_KEY_ID?.trim() || DEFAULT_R2_ACCESS_KEY_ID,
-    secretAccessKey: import.meta.env.VITE_R2_SECRET_ACCESS_KEY?.trim() || DEFAULT_R2_SECRET_ACCESS_KEY,
+    accountId: import.meta.env.VITE_R2_ACCOUNT_ID?.trim(),
+    accessKeyId: import.meta.env.VITE_R2_ACCESS_KEY_ID?.trim(),
+    secretAccessKey: import.meta.env.VITE_R2_SECRET_ACCESS_KEY?.trim(),
     bucketName: import.meta.env.VITE_R2_BUCKET_NAME?.trim() || DEFAULT_R2_BUCKET,
     publicDomain: import.meta.env.VITE_R2_PUBLIC_DOMAIN?.trim(),
   };
@@ -32,7 +28,9 @@ export function isR2Configured(): boolean {
     config.accountId &&
     config.accessKeyId &&
     config.secretAccessKey &&
-    config.accountId.length > 5
+    config.publicDomain &&
+    config.accountId.length > 5 &&
+    !config.accountId.includes('your-account-id')
   );
 }
 

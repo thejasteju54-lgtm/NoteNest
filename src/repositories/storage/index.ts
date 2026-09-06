@@ -35,14 +35,32 @@ class UniversalStorageManager implements IFileStorageRepository {
   }
 
   async downloadFile(storagePath: string): Promise<Blob | null> {
+    if (storagePath && storagePath.startsWith('r2://')) {
+      const r2Blob = await r2StorageRepo.downloadFile(storagePath);
+      if (r2Blob) return r2Blob;
+      // Fallback: Check if file exists in Supabase storage under the cleaned path
+      const cleanPath = storagePath.replace(/^r2:\/\//, '');
+      return supabaseStorageRepo.downloadFile(cleanPath);
+    }
     return this.getActiveRepo(storagePath).downloadFile(storagePath);
   }
 
   async getSignedUrl(storagePath: string, expiresInSeconds = 3600): Promise<string | null> {
+    if (storagePath && storagePath.startsWith('r2://')) {
+      const r2Url = await r2StorageRepo.getSignedUrl(storagePath, expiresInSeconds);
+      if (r2Url) return r2Url;
+      const cleanPath = storagePath.replace(/^r2:\/\//, '');
+      return supabaseStorageRepo.getSignedUrl(cleanPath, expiresInSeconds);
+    }
     return this.getActiveRepo(storagePath).getSignedUrl(storagePath, expiresInSeconds);
   }
 
   async deleteFile(storagePath: string): Promise<boolean> {
+    if (storagePath && storagePath.startsWith('r2://')) {
+      await r2StorageRepo.deleteFile(storagePath);
+      const cleanPath = storagePath.replace(/^r2:\/\//, '');
+      return supabaseStorageRepo.deleteFile(cleanPath);
+    }
     return this.getActiveRepo(storagePath).deleteFile(storagePath);
   }
 
