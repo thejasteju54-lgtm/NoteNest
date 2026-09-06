@@ -21,6 +21,7 @@ This file records key architecture decisions, state transitions, context, and pe
 | Initial | Safe Opt-In Local Migration | When signing in to Supabase, an opt-in banner allows importing existing local IndexedDB notes to the cloud account with explicit confirmation. | **Accepted** |
 | 2026-09-06 | Cloud Storage Routing & Hybrid Caching Fix | Removed mock R2 credentials that hijacked PDF uploads, defaulted to verified Supabase Storage (`notenest-files`), added IndexedDB local caching fallback, and added in-modal PDF re-upload recovery. | **Accepted** |
 | 2026-09-06 | In-App PDF Rendering with PDF.js Canvas | Replaced native `<iframe>` PDF rendering with `PDFCanvasViewer` using `pdfjs-dist` to enable crisp, responsive, high-DPI in-app PDF viewing across Android Chrome, iOS Safari, PWA, and desktop browsers without plugin dependency. | **Accepted** |
+| 2026-09-06 | Backend Hardening & Supercharged Study Suite | Added exponential backoff retry policy (`withRetry`), self-healing `ErrorBoundary`, offline connectivity indicator (`NetworkStatusBar`), in-document PDF search, reading themes (Dark/Sepia), side-by-side study scratchpad, and starred/priority notes. | **Accepted** |
 
 ---
 

@@ -1,6 +1,7 @@
 import { IFileStorageRepository } from './types';
 import { supabaseStorageRepo } from './supabaseStorageRepo';
 import { r2StorageRepo, isR2Configured } from './r2StorageRepo';
+import { withRetry } from '@/utils/retry';
 
 export * from './types';
 export * from './supabaseStorageRepo';
@@ -31,18 +32,29 @@ class UniversalStorageManager implements IFileStorageRepository {
   }
 
   async uploadFile(userId: string, subjectId: string, fileBlob: Blob): Promise<string> {
-    return this.getActiveRepo().uploadFile(userId, subjectId, fileBlob);
+    return withRetry(() => this.getActiveRepo().uploadFile(userId, subjectId, fileBlob), {
+      maxAttempts: 3,
+      initialDelayMs: 400,
+    });
   }
 
   async downloadFile(storagePath: string): Promise<Blob | null> {
-    if (storagePath && storagePath.startsWith('r2://')) {
-      const r2Blob = await r2StorageRepo.downloadFile(storagePath);
-      if (r2Blob) return r2Blob;
-      // Fallback: Check if file exists in Supabase storage under the cleaned path
-      const cleanPath = storagePath.replace(/^r2:\/\//, '');
-      return supabaseStorageRepo.downloadFile(cleanPath);
-    }
-    return this.getActiveRepo(storagePath).downloadFile(storagePath);
+    return withRetry(
+      async () => {
+        if (storagePath && storagePath.startsWith('r2://')) {
+          const r2Blob = await r2StorageRepo.downloadFile(storagePath);
+          if (r2Blob) return r2Blob;
+          // Fallback: Check if file exists in Supabase storage under the cleaned path
+          const cleanPath = storagePath.replace(/^r2:\/\//, '');
+          return supabaseStorageRepo.downloadFile(cleanPath);
+        }
+        return this.getActiveRepo(storagePath).downloadFile(storagePath);
+      },
+      {
+        maxAttempts: 3,
+        initialDelayMs: 350,
+      }
+    );
   }
 
   async getSignedUrl(storagePath: string, expiresInSeconds = 3600): Promise<string | null> {

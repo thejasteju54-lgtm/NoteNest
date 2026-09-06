@@ -15,6 +15,8 @@ import { SubjectModal } from '@/components/subjects/SubjectModal';
 import { PDFViewerModal } from '@/components/viewer/PDFViewerModal';
 import { Login } from '@/pages/Login';
 import { Signup } from '@/pages/Signup';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { NetworkStatusBar } from '@/components/common/NetworkStatusBar';
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -83,9 +85,13 @@ export const App: React.FC = () => {
 
   // 3. Protected Application View
   return (
-    <div className="min-h-screen bg-canvas text-slate-900 flex flex-col selection:bg-accent-sage/20">
-      {/* Top Navbar */}
-      <Navbar />
+    <ErrorBoundary fallbackTitle="Application encountered an error">
+      <div className="min-h-screen bg-canvas text-slate-900 flex flex-col selection:bg-accent-sage/20">
+        {/* Real-time Network / Offline Status */}
+        <NetworkStatusBar />
+
+        {/* Top Navbar */}
+        <Navbar />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 pb-24 md:pb-8">
@@ -140,7 +146,8 @@ export const App: React.FC = () => {
           </span>
         </div>
       </footer>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 export default App;

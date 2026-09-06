@@ -11,8 +11,16 @@ import {
   AlertCircle,
   Maximize2,
   ExternalLink,
+  Search,
+  X,
+  Sun,
+  Moon,
+  Coffee,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/common/Button';
+import { userPreferences, ReadingTheme } from '@/services/userPreferences';
 
 // Configure pdfjs worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -20,13 +28,19 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 interface PDFCanvasViewerProps {
   blobUrl: string;
   arrayBuffer?: ArrayBuffer | null;
+  noteId?: string;
   title?: string;
   onFallback?: () => void;
+}
+
+interface SearchMatch {
+  pageNum: number;
 }
 
 export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   blobUrl,
   arrayBuffer,
+  noteId,
   onFallback,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -37,22 +51,33 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
   const [numPages, setNumPages] = useState<number>(0);
   const [scale, setScale] = useState<number>(1.2);
   const [rotation, setRotation] = useState<number>(0);
+  const [theme, setTheme] = useState<ReadingTheme>(() => userPreferences.getPreferredTheme());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [pageInput, setPageInput] = useState<string>('1');
 
+  // Search State
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isSearchingText, setIsSearchingText] = useState<boolean>(false);
+  const [searchMatches, setSearchMatches] = useState<SearchMatch[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
 
-  // Load PDF Document
+  // Load PDF Document & Auto-Resume Last Read Page
   useEffect(() => {
     let isCancelled = false;
     let loadingTask: pdfjsLib.PDFDocumentLoadingTask | null = null;
 
     setIsLoading(true);
     setError(null);
-    setCurrentPage(1);
-    setPageInput('1');
+
+    const savedPage = noteId ? userPreferences.getLastReadPage(noteId) : 1;
+    setCurrentPage(savedPage);
+    setPageInput(String(savedPage));
 
     async function loadPdf() {
       try {
@@ -72,7 +97,6 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
 
         if (isCancelled) return;
 
-        // Pass raw bytes to PDF.js worker so it doesn't need to fetch any URL in worker thread
         loadingTask = pdfjsLib.getDocument({
           data: bytes,
         });
@@ -81,6 +105,11 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
         if (!isCancelled) {
           setPdfDoc(doc);
           setNumPages(doc.numPages);
+          
+          // Clamp saved page to doc bounds
+          const safePage = Math.min(doc.numPages, Math.max(1, savedPage));
+          setCurrentPage(safePage);
+          setPageInput(String(safePage));
           setIsLoading(false);
         }
       } catch (err: unknown) {
@@ -101,7 +130,14 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
         loadingTask.destroy();
       }
     };
-  }, [blobUrl, arrayBuffer]);
+  }, [blobUrl, arrayBuffer, noteId]);
+
+  // Save last read page progress
+  useEffect(() => {
+    if (noteId && currentPage >= 1) {
+      userPreferences.saveLastReadPage(noteId, currentPage);
+    }
+  }, [noteId, currentPage]);
 
   // Render Page onto Canvas
   const renderPage = useCallback(
@@ -233,6 +269,90 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     setRotation((prev) => (prev + 90) % 360);
   };
 
+  const handleCycleTheme = () => {
+    const themes: ReadingTheme[] = ['light', 'dark', 'sepia'];
+    const nextIdx = (themes.indexOf(theme) + 1) % themes.length;
+    const nextTheme = themes[nextIdx];
+    setTheme(nextTheme);
+    userPreferences.setPreferredTheme(nextTheme);
+  };
+
+  // Full-Text In-Document Search
+  const handlePerformSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const term = searchQuery.trim().toLowerCase();
+    if (!term || !pdfDoc) {
+      setSearchMatches([]);
+      setCurrentMatchIndex(-1);
+      return;
+    }
+
+    setIsSearchingText(true);
+    setSearchError(null);
+    const matches: SearchMatch[] = [];
+
+    try {
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const textContent = await page.getTextContent();
+        // @ts-expect-error item string property in PDF.js
+        const text = textContent.items.map((item) => item.str || '').join(' ').toLowerCase();
+        if (text.includes(term)) {
+          matches.push({ pageNum: i });
+        }
+      }
+
+      setSearchMatches(matches);
+      if (matches.length > 0) {
+        setCurrentMatchIndex(0);
+        setCurrentPage(matches[0].pageNum);
+        setPageInput(String(matches[0].pageNum));
+      } else {
+        setCurrentMatchIndex(-1);
+        setSearchError('No matches found in document.');
+      }
+    } catch (err) {
+      console.error('Search text extraction error:', err);
+      setSearchError('Could not search document text.');
+    } finally {
+      setIsSearchingText(false);
+    }
+  };
+
+  const handleNextMatch = () => {
+    if (searchMatches.length === 0) return;
+    const nextIdx = (currentMatchIndex + 1) % searchMatches.length;
+    setCurrentMatchIndex(nextIdx);
+    const targetPage = searchMatches[nextIdx].pageNum;
+    setCurrentPage(targetPage);
+    setPageInput(String(targetPage));
+  };
+
+  const handlePrevMatch = () => {
+    if (searchMatches.length === 0) return;
+    const prevIdx = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    setCurrentMatchIndex(prevIdx);
+    const targetPage = searchMatches[prevIdx].pageNum;
+    setCurrentPage(targetPage);
+    setPageInput(String(targetPage));
+  };
+
+  // Keyboard shortcut Ctrl+F / Cmd+F
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+      if (e.key === 'Escape' && isSearchOpen) {
+        setIsSearchOpen(false);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSearchOpen]);
+
   if (isLoading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white text-slate-500">
@@ -247,9 +367,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white text-center">
         <AlertCircle className="w-10 h-10 text-rose-500 mb-2" />
         <p className="font-semibold text-slate-800 text-sm">Could not render inside Canvas Viewer</p>
-        <p className="text-xs text-slate-500 mt-1 max-w-xs mb-4">
-          {error}
-        </p>
+        <p className="text-xs text-slate-500 mt-1 max-w-xs mb-4">{error}</p>
         <div className="flex items-center gap-2">
           {onFallback && (
             <Button variant="primary" size="sm" onClick={onFallback}>
@@ -269,8 +387,23 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
     );
   }
 
+  // Theme container styling
+  const themeContainerBg =
+    theme === 'dark'
+      ? 'bg-slate-900'
+      : theme === 'sepia'
+      ? 'bg-[#FBF0D9]'
+      : 'bg-slate-100';
+
+  const themeCanvasFilter =
+    theme === 'dark'
+      ? 'invert(0.92) hue-rotate(180deg) brightness(0.95) contrast(1.05)'
+      : theme === 'sepia'
+      ? 'sepia(0.35) brightness(0.96) contrast(0.98)'
+      : 'none';
+
   return (
-    <div className="flex flex-col h-full bg-slate-100 rounded-xl overflow-hidden select-none">
+    <div className={`flex flex-col h-full rounded-xl overflow-hidden select-none ${themeContainerBg} transition-colors duration-200`}>
       {/* Sticky Top Viewer Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 bg-white/95 backdrop-blur border-b border-slate-200/80 gap-2 shrink-0 flex-wrap">
         {/* Pagination Controls */}
@@ -310,8 +443,39 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
           </Button>
         </div>
 
-        {/* Zoom & View Controls */}
+        {/* Action Controls (Search, Zoom, Theme, Rotate, Fallback) */}
         <div className="flex items-center gap-1">
+          {/* Search Toggle */}
+          <Button
+            variant={isSearchOpen ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setIsSearchOpen((o) => !o)}
+            className="h-8 w-8 p-0"
+            aria-label="Find in PDF"
+            title="Find in PDF (Ctrl+F)"
+          >
+            <Search className="w-3.5 h-3.5" />
+          </Button>
+
+          {/* Reading Theme Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCycleTheme}
+            className="h-8 w-8 p-0"
+            aria-label="Toggle Reading Mode"
+            title={`Reading Mode: ${theme.toUpperCase()} (Click to change)`}
+          >
+            {theme === 'dark' ? (
+              <Moon className="w-3.5 h-3.5 text-indigo-500" />
+            ) : theme === 'sepia' ? (
+              <Coffee className="w-3.5 h-3.5 text-amber-600" />
+            ) : (
+              <Sun className="w-3.5 h-3.5 text-amber-500" />
+            )}
+          </Button>
+
+          {/* Zoom Controls */}
           <Button
             variant="outline"
             size="sm"
@@ -324,7 +488,7 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
             <ZoomOut className="w-4 h-4" />
           </Button>
 
-          <span className="text-xs font-medium text-slate-600 w-12 text-center hidden xs:inline-block">
+          <span className="text-xs font-medium text-slate-600 w-11 text-center hidden xs:inline-block">
             {Math.round(scale * 100)}%
           </span>
 
@@ -368,14 +532,91 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
               variant="ghost"
               size="sm"
               onClick={onFallback}
-              className="h-8 px-2 text-[11px] text-slate-500 hover:text-slate-800"
+              className="h-8 px-2 text-[11px] text-slate-500 hover:text-slate-800 hidden xs:inline-flex"
               title="Switch to Browser Built-in PDF Engine"
             >
-              Native View
+              Native
             </Button>
           )}
         </div>
       </div>
+
+      {/* Expandable In-Document Search Bar */}
+      {isSearchOpen && (
+        <div className="bg-white/95 border-b border-slate-200 px-3 py-2 flex items-center justify-between gap-2 shadow-sm animate-in slide-in-from-top-2 duration-150">
+          <form onSubmit={handlePerformSearch} className="flex items-center gap-2 flex-1 max-w-md">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Find text in document..."
+                autoFocus
+                className="w-full h-8 pl-8 pr-3 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-accent-sage bg-slate-50"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            </div>
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              className="h-8 px-3 text-xs"
+              isLoading={isSearchingText}
+            >
+              Search
+            </Button>
+          </form>
+
+          {/* Matches & Navigation */}
+          <div className="flex items-center gap-2">
+            {searchMatches.length > 0 ? (
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
+                Match {currentMatchIndex + 1} of {searchMatches.length} (p. {searchMatches[currentMatchIndex]?.pageNum})
+              </span>
+            ) : searchError ? (
+              <span className="text-xs text-rose-500">{searchError}</span>
+            ) : null}
+
+            {searchMatches.length > 0 && (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrevMatch}
+                  className="h-7 w-7 p-0"
+                  title="Previous Match"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextMatch}
+                  className="h-7 w-7 p-0"
+                  title="Next Match"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsSearchOpen(false);
+                setSearchMatches([]);
+                setCurrentMatchIndex(-1);
+              }}
+              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+              aria-label="Close Search"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Canvas Scroll Area */}
       <div
@@ -390,7 +631,10 @@ export const PDFCanvasViewer: React.FC<PDFCanvasViewerProps> = ({
           </div>
         )}
 
-        <div className="shadow-lg rounded bg-white transition-transform duration-100 ease-out">
+        <div
+          className="shadow-lg rounded bg-white transition-all duration-150 ease-out"
+          style={{ filter: themeCanvasFilter }}
+        >
           <canvas ref={canvasRef} className="block rounded max-w-none" />
         </div>
       </div>
