@@ -28,13 +28,15 @@ This file records key architecture decisions, state transitions, context, and pe
 ## 🧪 Verification & Audit Results
 
 ### ⚙️ Automated Verification
-- **16 / 16 Vitest tests passed** (`tests/fileValidation.test.ts`, `tests/services.test.ts`, `tests/supabase.test.ts`).
+- **43 / 43 Vitest tests passed** across 7 test suites (`tests/fileValidation.test.ts`, `tests/authValidation.test.ts`, `tests/academicFeatures.test.ts`, `tests/liveSupabase.test.ts`, `tests/r2Storage.test.ts`, `tests/supabase.test.ts`, `tests/services.test.ts`).
 - **TypeScript strict compilation**: `tsc --noEmit` passed with 0 errors.
-- **Production Build**: `vite build` generated production bundle in `dist/`.
+- **Production Build**: `vite build` generated production bundle in `dist/` cleanly in 4.35s.
+- **Production Deployments**: Both Vercel targets (`note-nest-5gef` and `note-nest`) deployed with `state: "success"`. Live at https://note-nest-5gef.vercel.app/.
 
 ### 🖥️ Manual / Browser Verification
 - Supabase Auth modal (Sign In, Sign Up, Forgot Password, Google OAuth, Demo switch).
 - Migration banner (safe opt-in import).
 - Subject and note CRUD operations.
-- PDF upload, preview, and download.
+- PDF upload, in-app Canvas preview, full-text search, reading themes, study scratchpad drawer, and download.
 - Local storage fallback when env variables are not present.
+
